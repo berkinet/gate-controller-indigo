@@ -33,6 +33,9 @@ gate.
 - Optional Action Group hooks for straightforward migration.
 - A safe momentary control action using Indigo's server-managed pulse duration.
 - Deduplicated source-input errors with explicit recovery reporting.
+- Four selectable logging levels. At the default Informational level, normal
+  operation logs only `Gate opening` and `Gate closed.`; Debugging adds detailed
+  input, pulse timing, classification, timer, action, and lifecycle diagnostics.
 
 Plugin startup synchronizes current input levels without counting an already-on
 lamp as a pulse and without emitting transition triggers or Action Groups. This

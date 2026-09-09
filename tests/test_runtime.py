@@ -12,9 +12,16 @@ SERVER = ROOT / "Gate Controller.indigoPlugin" / "Contents" / "Server Plugin"
 class FakeLogger:
     def __init__(self):
         self.records = []
+        self.level = None
 
     def _record(self, level, message, *args):
         self.records.append((level, message % args if args else message))
+
+    def setLevel(self, level):
+        self.level = level
+
+    def debug(self, message, *args):
+        self._record("debug", message, *args)
 
     def info(self, message, *args):
         self._record("info", message, *args)
@@ -109,9 +116,19 @@ fake_indigo.actionGroup = types.SimpleNamespace(execute=lambda _group_id: None)
 fake_indigo.device = types.SimpleNamespace(turnOn=lambda *args, **kwargs: None)
 
 
+class FakeHandler:
+    def __init__(self):
+        self.level = None
+
+    def setLevel(self, level):
+        self.level = level
+
+
 class FakePluginBase:
     def __init__(self, *_args):
         self.logger = FakeLogger()
+        self.indigo_log_handler = FakeHandler()
+        self.plugin_file_handler = FakeHandler()
         self.base_device_updates = []
 
     def deviceUpdated(self, original, updated):
@@ -149,6 +166,8 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(gate.states["inputsAvailable"])
         self.assertEqual([], owner.events)
         self.assertEqual([], owner.groups)
+        self.assertEqual([], [message for level, message in owner.logger.records
+                              if level == "info"])
 
     def test_startup_overwrites_a_legacy_numeric_display_with_unknown(self):
         owner = RuntimePlugin()
@@ -196,7 +215,34 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(gate.states["inputsAvailable"])
         self.assertIsNone(gate.error)
         self.assertTrue(any("recovered" in message for level, message
-                            in owner.logger.records if level == "info"))
+                            in owner.logger.records if level == "debug"))
+
+    def test_only_opening_and_closed_are_routine_information(self):
+        owner = RuntimePlugin()
+        gate = FakeDevice(100, "Main Gate", props=base_props())
+        runtime = gate_plugin.GateRuntime(owner, gate)
+        runtime.start()
+
+        fake_indigo.devices[3].states["onOffState"] = False
+        runtime.evaluate("closed limit released")
+        fake_indigo.devices[1].states["onOffState"] = True
+        runtime.evaluate("lamp rising")
+        fake_indigo.devices[1].states["onOffState"] = False
+        runtime.evaluate("lamp falling")
+        fake_indigo.devices[3].states["onOffState"] = True
+        runtime.evaluate("closed limit reached")
+        runtime.stop()
+
+        self.assertEqual(
+            ["Gate opening", "Gate closed."],
+            [message for level, message in owner.logger.records
+             if level == "info"])
+        debug_messages = [message for level, message in owner.logger.records
+                          if level == "debug"]
+        self.assertTrue(any("lamp pulse accepted" in message
+                            for message in debug_messages))
+        self.assertTrue(any("state changed" in message
+                            for message in debug_messages))
 
     def test_force_cannot_override_an_active_physical_limit(self):
         owner = RuntimePlugin()
@@ -219,6 +265,18 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual([(44, 1)], calls)
         self.assertTrue(gate.states["onOffState"])
         self.assertEqual("closed", gate.states["position"])
+
+    def test_logging_preference_uses_the_four_requested_levels(self):
+        plugin = gate_plugin.Plugin(
+            "id", "name", "version", {"loggingLevel": "30"})
+        self.assertEqual(30, plugin.log_level)
+        self.assertEqual(10, plugin.logger.level)
+        self.assertEqual(30, plugin.indigo_log_handler.level)
+        self.assertEqual(30, plugin.plugin_file_handler.level)
+
+        plugin.closedPrefsConfigUi({"loggingLevel": "10"}, False)
+        self.assertEqual(10, plugin.log_level)
+        self.assertEqual(10, plugin.indigo_log_handler.level)
 
     def test_fractional_control_duration_is_rejected_without_raw_exception(self):
         plugin = gate_plugin.Plugin("id", "name", "version", {})

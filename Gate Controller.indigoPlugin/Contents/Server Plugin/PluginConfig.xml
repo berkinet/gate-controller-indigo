@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<PluginConfig>
+    <Field id="loggingLevel" type="menu" defaultValue="20">
+        <Label>Logging level:</Label>
+        <List>
+            <Option value="10">Debugging</Option>
+            <Option value="20">Informational</Option>
+            <Option value="30">Warning</Option>
+            <Option value="40">Error</Option>
+        </List>
+    </Field>
+</PluginConfig>

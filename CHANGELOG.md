@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.0-alpha.9 — 2026-09-09
+
+- Add a four-level plugin logging preference: Debugging, Informational,
+  Warning, and Error, with Informational as the default.
+- Limit routine informational output to `Gate opening` and `Gate closed.`;
+  startup synchronization, input recovery, full transitions, actions, and
+  lifecycle details now appear only at Debugging.
+- Add Debugging diagnostics for input snapshots, limit overrides, accepted and
+  debounced lamp pulses, pulse classification, timer activity, forced states,
+  trigger execution, and control pulses.
+- Report conflicting limits and the open-too-long condition as warnings while
+  retaining existing input-unavailable warnings and operational errors.
+
 ## 0.1.0-alpha.8 — 2026-09-09
 
 - Infer Opening immediately when the first lamp pulse follows departure from

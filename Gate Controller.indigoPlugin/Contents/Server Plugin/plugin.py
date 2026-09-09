@@ -3,6 +3,7 @@
 """Indigo Gate Controller plugin."""
 
 import datetime
+import logging
 import threading
 import time
 
@@ -118,6 +119,13 @@ class GateRuntime:
         with self._lock:
             try:
                 values, open_active, closed_active = self._read_inputs()
+                self.plugin.logger.debug(
+                    "Gate monitoring starting: device='%s' inputs=[%s] "
+                    "debounce=%.3fs idle=%.3fs closing=%.3fs opening=%.3fs "
+                    "band=%.3fs",
+                    self.device.name, self._format_inputs(values),
+                    self.machine.debounce, self.machine.idle_timeout,
+                    self.machine.fast, self.machine.slow, self.machine.band)
                 transition = self.machine.synchronize(
                     time.monotonic(), values["lamp"], open_active, closed_active)
                 self._publish_inputs(values)
@@ -136,6 +144,14 @@ class GateRuntime:
         for timer in timers:
             if timer is not None:
                 timer.cancel()
+        self.plugin.logger.debug(
+            "Gate monitoring stopped: device='%s'", self.device.name)
+
+    @staticmethod
+    def _format_inputs(values):
+        return " ".join(
+            "%s=%s" % (name, "unused" if value is None else str(bool(value)).lower())
+            for name, value in values.items())
 
     def _replace_timer(self, attribute, delay, callback):
         old = getattr(self, attribute)
@@ -152,15 +168,26 @@ class GateRuntime:
             if self._idle_timer is not None:
                 self._idle_timer.cancel()
                 self._idle_timer = None
+                self.plugin.logger.debug(
+                    "Gate idle timer canceled: device='%s'",
+                    self.device.name)
             return
+        delay = max(0.0, self.machine.idle_deadline - now)
+        action = "re-armed" if self._idle_timer is not None else "armed"
         self._replace_timer(
-            "_idle_timer", self.machine.idle_deadline - now, self._idle_fired)
+            "_idle_timer", delay, self._idle_fired)
+        self.plugin.logger.debug(
+            "Gate idle timer %s: device='%s' delay=%.3fs",
+            action, self.device.name, delay)
 
     def _idle_fired(self, generation):
         with self._lock:
             if self._stopped or generation != self._generation:
                 return
             self._idle_timer = None
+            self.plugin.logger.debug(
+                "Gate idle timer fired: device='%s' last_motion=%s",
+                self.device.name, self.machine.last_motion)
             try:
                 values, open_active, closed_active = self._read_inputs()
                 self._publish_inputs(values)
@@ -180,6 +207,11 @@ class GateRuntime:
             self._open_timer = None
         try:
             self.device.updateStateOnServer("openTooLong", value=True)
+            seconds = float(self.device.pluginProps.get(
+                "openTooLongSeconds", 1800))
+            self.plugin.logger.warning(
+                "Gate has remained open for %.0f seconds: device='%s'",
+                seconds, self.device.name)
             self.plugin.emit(self.device, "openTooLong")
             self.plugin.run_action_group(self.device, "openTooLongActionGroup")
         except Exception as error:
@@ -195,10 +227,16 @@ class GateRuntime:
             self.device.updateStateOnServer("openTooLong", value=False)
             if seconds > 0:
                 self._replace_timer("_open_timer", seconds, self._open_too_long_fired)
+                self.plugin.logger.debug(
+                    "Gate open-too-long timer armed: device='%s' delay=%.3fs",
+                    self.device.name, seconds)
         elif transition.new != "open":
             if self._open_timer is not None:
                 self._open_timer.cancel()
                 self._open_timer = None
+                self.plugin.logger.debug(
+                    "Gate open-too-long timer canceled: device='%s'",
+                    self.device.name)
             self.device.updateStateOnServer("openTooLong", value=False)
 
     def _input_error(self, error):
@@ -225,7 +263,7 @@ class GateRuntime:
     def _inputs_recovered(self):
         recovered = self._input_error_message is not None
         if recovered:
-            self.plugin.logger.info(
+            self.plugin.logger.debug(
                 "Gate inputs recovered: device='%s'", self.device.name)
         self._input_error_message = None
         self._input_error_logged_at = 0.0
@@ -243,8 +281,13 @@ class GateRuntime:
             try:
                 values, open_active, closed_active = self._read_inputs()
                 now = time.monotonic()
+                previous_lamp = self.machine.last_lamp_active
+                previous_edge = self.machine.last_edge
                 transition = self.machine.observe(
                     now, values["lamp"], open_active, closed_active)
+                self._debug_observation(
+                    reason, now, values, open_active, closed_active,
+                    previous_lamp, previous_edge, transition)
                 self._publish_inputs(values)
                 self._inputs_recovered()
                 self._schedule_idle(now)
@@ -252,6 +295,59 @@ class GateRuntime:
                 self._input_error(error)
                 return
         self._publish(transition)
+
+    def _debug_observation(self, reason, now, values, open_active,
+                           closed_active, previous_lamp, previous_edge,
+                           transition):
+        self.plugin.logger.debug(
+            "Gate inputs observed: device='%s' reason='%s' [%s]",
+            self.device.name, reason, self._format_inputs(values))
+
+        rising_edge = bool(values["lamp"]) and not previous_lamp
+        if open_active and closed_active:
+            self.plugin.logger.debug(
+                "Gate limit override: device='%s' both open and closed "
+                "limits are active", self.device.name)
+            return
+        if open_active or closed_active:
+            self.plugin.logger.debug(
+                "Gate limit override: device='%s' %s limit is active",
+                self.device.name, "open" if open_active else "closed")
+            return
+        if not rising_edge:
+            return
+        if now < self.machine.paused_until:
+            self.plugin.logger.debug(
+                "Gate lamp pulse ignored while paused: device='%s' "
+                "remaining=%.3fs", self.device.name,
+                self.machine.paused_until - now)
+            return
+        if (previous_edge is not None and
+                now - previous_edge < self.machine.debounce):
+            self.plugin.logger.debug(
+                "Gate lamp pulse ignored by debounce: device='%s' "
+                "interval=%.3fs minimum=%.3fs", self.device.name,
+                now - previous_edge, self.machine.debounce)
+            return
+
+        interval = self.machine.last_interval
+        if interval is None:
+            detail = "first pulse"
+        elif interval > self.machine.idle_timeout:
+            detail = "new run after %.3fs gap" % interval
+        elif abs(interval - self.machine.fast) <= self.machine.band:
+            detail = "%.3fs classified as closing" % interval
+        elif abs(interval - self.machine.slow) <= self.machine.band:
+            detail = "%.3fs classified as opening" % interval
+        else:
+            detail = "%.3fs out of classification bands" % interval
+        self.plugin.logger.debug(
+            "Gate lamp pulse accepted: device='%s' %s",
+            self.device.name, detail)
+        if transition is None and interval is not None:
+            self.plugin.logger.debug(
+                "Gate motion unchanged after lamp pulse: device='%s' "
+                "state=%s", self.device.name, self.machine.state)
 
     def _publish(self, transition, notify=True):
         try:
@@ -281,14 +377,22 @@ class GateRuntime:
             self.device.updateStateImageOnServer(image)
             self._manage_open_timer(transition)
             if transition.old == transition.new:
-                self.plugin.logger.info(
+                self.plugin.logger.debug(
                     "Gate state synchronized: device='%s' %s (%s)",
                     self.device.name, transition.new, transition.reason)
             else:
-                self.plugin.logger.info(
+                self.plugin.logger.debug(
                     "Gate state changed: device='%s' %s -> %s (%s)",
                     self.device.name, transition.old, transition.new,
                     transition.reason)
+            if state == "fault":
+                self.plugin.logger.warning(
+                    "Gate fault: device='%s' %s",
+                    self.device.name, transition.reason)
+            elif notify and state == "opening":
+                self.plugin.logger.info("Gate opening")
+            elif notify and state == "closed":
+                self.plugin.logger.info("Gate closed.")
             if notify:
                 self.plugin.emit(self.device, state)
                 self.plugin.run_action_group(self.device, state + "ActionGroup")
@@ -300,6 +404,9 @@ class GateRuntime:
     def force(self, state, pause_seconds=0.0):
         with self._lock:
             now = time.monotonic()
+            self.plugin.logger.debug(
+                "Gate state force requested: device='%s' state=%s pause=%.3fs",
+                self.device.name, state, pause_seconds)
             transition = self.machine.force(state, now, pause_seconds)
             try:
                 values, open_active, closed_active = self._read_inputs()
@@ -323,10 +430,36 @@ class Plugin(indigo.PluginBase):
         self.source_index = {}
         self.triggers = {}
         self._lock = threading.RLock()
+        self._set_logging_level(pluginPrefs.get("loggingLevel", logging.INFO))
+
+    def _set_logging_level(self, value):
+        try:
+            level = int(value)
+        except (TypeError, ValueError):
+            level = logging.INFO
+        if level not in (logging.DEBUG, logging.INFO,
+                         logging.WARNING, logging.ERROR):
+            level = logging.INFO
+        self.log_level = level
+        self.logger.setLevel(logging.DEBUG)
+        for name in ("indigo_log_handler", "plugin_file_handler"):
+            handler = getattr(self, name, None)
+            if handler is not None:
+                handler.setLevel(level)
 
     def startup(self):
         indigo.devices.subscribeToChanges()
-        self.logger.info("Gate Controller alpha started")
+        self.logger.debug(
+            "Gate Controller started: logging=%s",
+            logging.getLevelName(self.log_level))
+
+    def closedPrefsConfigUi(self, valuesDict, userCancelled):
+        if not userCancelled:
+            self._set_logging_level(valuesDict.get(
+                "loggingLevel", logging.INFO))
+            self.logger.debug(
+                "Gate Controller logging changed: logging=%s",
+                logging.getLevelName(self.log_level))
 
     def shutdown(self):
         for runtime in list(self.runtimes.values()):
@@ -343,6 +476,9 @@ class Plugin(indigo.PluginBase):
             for source_id in runtime.source_ids():
                 self.source_index.setdefault(source_id, set()).add(device.id)
             runtime.start()
+            self.logger.debug(
+                "Gate device started: device='%s' id=%s sources=%s",
+                device.name, device.id, sorted(runtime.source_ids()))
         except Exception as error:
             device.setErrorStateOnServer(str(error))
             self.logger.error("Unable to start gate '%s': %s", device.name, error)
@@ -352,6 +488,9 @@ class Plugin(indigo.PluginBase):
         if runtime is None:
             return
         runtime.stop()
+        self.logger.debug(
+            "Gate device stopped: device='%s' id=%s",
+            device.name, device.id)
         for source_id in list(self.source_index):
             self.source_index[source_id].discard(device.id)
             if not self.source_index[source_id]:
@@ -368,9 +507,13 @@ class Plugin(indigo.PluginBase):
 
     def triggerStartProcessing(self, trigger):
         self.triggers[trigger.id] = trigger
+        self.logger.debug(
+            "Gate trigger enabled: id=%s event=%s",
+            trigger.id, trigger.pluginTypeId)
 
     def triggerStopProcessing(self, trigger):
         self.triggers.pop(trigger.id, None)
+        self.logger.debug("Gate trigger disabled: id=%s", trigger.id)
 
     def emit(self, device, event_id):
         for trigger in list(self.triggers.values()):
@@ -378,6 +521,9 @@ class Plugin(indigo.PluginBase):
                 if (trigger.pluginTypeId == event_id and
                         int(trigger.pluginProps.get("gateDeviceId", 0)) == device.id):
                     indigo.trigger.execute(trigger.id)
+                    self.logger.debug(
+                        "Gate trigger executed: device='%s' event=%s "
+                        "trigger_id=%s", device.name, event_id, trigger.id)
             except Exception as error:
                 self.logger.error("Unable to execute gate trigger %s for '%s': %s",
                                   trigger.id, device.name, error)
@@ -387,6 +533,9 @@ class Plugin(indigo.PluginBase):
             group_id = int(device.pluginProps.get(property_name, 0) or 0)
             if group_id:
                 indigo.actionGroup.execute(group_id)
+                self.logger.debug(
+                    "Gate action group executed: device='%s' property=%s "
+                    "action_group_id=%s", device.name, property_name, group_id)
         except Exception as error:
             self.logger.error("Unable to run %s for gate '%s': %s",
                               property_name, device.name, error)
@@ -403,6 +552,9 @@ class Plugin(indigo.PluginBase):
                     "gate control pulse duration must be a whole number of "
                     "seconds greater than zero")
             indigo.device.turnOn(control_id, duration=duration)
+            self.logger.debug(
+                "Gate control pulse started: device='%s' control_device_id=%s "
+                "duration=%ss", device.name, control_id, duration)
         except Exception as error:
             self.logger.error("Unable to start gate control pulse for '%s': %s",
                               device.name, error)
