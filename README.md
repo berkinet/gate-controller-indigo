@@ -26,6 +26,8 @@ gate.
   Stopped, Unknown, Paused, or Fault.
 - The native Garage Controller on/off state follows Indigo's garage-door
   convention: on means closed, while its displayed text remains the gate state.
+- No state icon is shown, avoiding the appearance of a latched power switch;
+  Indigo's Toggle command still sends the configured GiBiDi pulse.
 - Transition triggers for opening, closing, open, closed, stopped, unknown,
   paused, fault, and open-too-long.
 - Optional Action Group hooks for straightforward migration.
@@ -45,6 +47,8 @@ prevents restarts from replaying announcements and lighting actions.
 5. Confirm the active polarity of each input before configuring control output.
    The control output is the Indigo device physically wired to the GiBiDi
    pushbutton/command input (`House - gate control` in the current system).
+   Pulse duration must be a whole number of seconds because Indigo's
+   server-managed duration API does not accept fractional values.
 6. Observe a complete open and close cycle and verify `position`, `doorState`,
    input states, and `lampInterval`.
 7. Add transition triggers for announcements and lighting only after state

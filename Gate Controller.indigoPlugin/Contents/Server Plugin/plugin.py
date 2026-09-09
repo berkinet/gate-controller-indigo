@@ -115,6 +115,12 @@ class GateRuntime:
             self.device.updateStatesOnServer(updates)
 
     def start(self):
+        try:
+            self.device.updateStateImageOnServer(indigo.kStateImageSel.NoImage)
+        except Exception as error:
+            self.plugin.logger.warning(
+                "Unable to remove the state image for '%s': %s",
+                self.device.name, error)
         with self._lock:
             try:
                 values, open_active, closed_active = self._read_inputs()
@@ -394,7 +400,12 @@ class Plugin(indigo.PluginBase):
             if not control_id:
                 raise RuntimeError("no gate control device is configured")
             seconds = float(device.pluginProps.get("controlPulseSeconds", 1.0))
-            indigo.device.turnOn(control_id, duration=seconds)
+            duration = int(seconds)
+            if seconds != duration or duration < 1:
+                raise ValueError(
+                    "gate control pulse duration must be a whole number of "
+                    "seconds greater than zero")
+            indigo.device.turnOn(control_id, duration=duration)
         except Exception as error:
             self.logger.error("Unable to start gate control pulse for '%s': %s",
                               device.name, error)
@@ -496,7 +507,7 @@ class Plugin(indigo.PluginBase):
             errors["closedDeviceId"] = "Open and closed detectors must be different"
         for key, minimum in (("debounceSeconds", 0.01),
                              ("idleTimeoutSeconds", 0.2),
-                             ("controlPulseSeconds", 0.1),
+                             ("controlPulseSeconds", 1.0),
                              ("closingInterval", 0.1),
                              ("openingInterval", 0.1),
                              ("intervalBand", 0.01),
@@ -518,6 +529,13 @@ class Plugin(indigo.PluginBase):
                 errors["idleTimeoutSeconds"] = "Idle timeout must exceed both pulse ranges"
             if debounce >= min(opening, closing) - band:
                 errors["debounceSeconds"] = "Debounce must be below both pulse ranges"
+        except (TypeError, ValueError):
+            pass
+        try:
+            pulse_seconds = float(valuesDict.get("controlPulseSeconds", 0))
+            if not pulse_seconds.is_integer():
+                errors["controlPulseSeconds"] = (
+                    "Enter a whole number of seconds greater than zero")
         except (TypeError, ValueError):
             pass
         try:

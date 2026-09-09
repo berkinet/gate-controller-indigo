@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.7 — 2026-09-09
+
+- Pass the momentary pulse duration to Indigo as the required unsigned whole
+  number, fixing the Boost.Python argument mismatch that prevented operation.
+- Validate pulse duration as a positive whole number in the device dialog.
+- Remove the misleading stateful power icon while preserving the native Toggle
+  command and Garage Controller/HomeKit behavior.
+
 ## 0.1.0-alpha.6 — 2026-09-09
 
 - Restore Indigo's standard device reconfiguration lifecycle when Gate

@@ -36,6 +36,7 @@ class FakeDevice:
         self.error = None
         self.ui_values = {}
         self.display_metadata_refreshes = 0
+        self.state_image = None
 
     def updateStateOnServer(self, key, value=None, **kwargs):
         self.states[key] = value
@@ -53,6 +54,9 @@ class FakeDevice:
 
     def stateListOrDisplayStateIdChanged(self):
         self.display_metadata_refreshes += 1
+
+    def updateStateImageOnServer(self, image):
+        self.state_image = image
 
 
 class FakeDevices(dict):
@@ -99,6 +103,7 @@ fake_indigo.devices = FakeDevices()
 fake_indigo.actionGroups = []
 fake_indigo.Dict = dict
 fake_indigo.kDeviceAction = types.SimpleNamespace(TurnOn=1, TurnOff=2, Toggle=3)
+fake_indigo.kStateImageSel = types.SimpleNamespace(NoImage=0)
 fake_indigo.trigger = types.SimpleNamespace(execute=lambda _trigger_id: None)
 fake_indigo.actionGroup = types.SimpleNamespace(execute=lambda _group_id: None)
 fake_indigo.device = types.SimpleNamespace(turnOn=lambda *args, **kwargs: None)
@@ -140,6 +145,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(1, gate.states["doorState"])
         self.assertTrue(gate.states["onOffState"])
         self.assertEqual("Closed", gate.ui_values["onOffState"])
+        self.assertEqual(fake_indigo.kStateImageSel.NoImage, gate.state_image)
         self.assertTrue(gate.states["inputsAvailable"])
         self.assertEqual([], owner.events)
         self.assertEqual([], owner.groups)
@@ -206,12 +212,26 @@ class RuntimeTests(unittest.TestCase):
             turnOn=lambda device_id, duration: calls.append((device_id, duration)))
         plugin = gate_plugin.Plugin("id", "name", "version", {})
         gate = FakeDevice(100, "Main Gate", props={
-            "controlDeviceId": "44", "controlPulseSeconds": "0.75"},
+            "controlDeviceId": "44", "controlPulseSeconds": "1"},
             states={"onOffState": True, "position": "closed"})
         plugin.pulseGate(None, gate)
-        self.assertEqual([(44, 0.75)], calls)
+        self.assertEqual([(44, 1)], calls)
         self.assertTrue(gate.states["onOffState"])
         self.assertEqual("closed", gate.states["position"])
+
+    def test_fractional_control_duration_is_rejected_without_raw_exception(self):
+        plugin = gate_plugin.Plugin("id", "name", "version", {})
+        calls = []
+        fake_indigo.device = types.SimpleNamespace(
+            turnOn=lambda device_id, duration: calls.append((device_id, duration)))
+        gate = FakeDevice(100, "Main Gate", props={
+            "controlDeviceId": "44", "controlPulseSeconds": "0.75"})
+        plugin.pulseGate(None, gate)
+        self.assertEqual([], calls)
+        errors = [message for level, message in plugin.logger.records
+                  if level == "error"]
+        self.assertEqual(1, len(errors))
+        self.assertIn("whole number", errors[0])
 
     def test_device_start_refreshes_indigo_display_metadata(self):
         plugin = gate_plugin.Plugin("id", "name", "version", {})

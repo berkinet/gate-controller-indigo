@@ -21,7 +21,7 @@
             <Field id="controlSeparator" type="separator"/>
             <Field id="controlTitle" type="label" alignText="center"><Label>GiBiDi command input</Label></Field>
             <Field id="controlDeviceId" type="menu" defaultValue="0"><Label>Momentary control output device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/></Field>
-            <Field id="controlPulseSeconds" type="textfield" defaultValue="1.0"><Label>Control pulse duration (seconds):</Label></Field>
+            <Field id="controlPulseSeconds" type="textfield" defaultValue="1"><Label>Control pulse duration (whole seconds):</Label></Field>
             <Field id="controlHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Select the Indigo output physically wired to the GiBiDi pushbutton/command input (currently House - gate control). Open, Close, and Toggle each produce the same momentary pulse.</Label></Field>
 
             <Field id="secondarySeparator" type="separator"/>
