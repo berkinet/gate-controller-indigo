@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.6 — 2026-09-09
+
+- Restore Indigo's standard device reconfiguration lifecycle when Gate
+  Controller properties change.
+- Apply changed input devices, state selections, polarities, and timing values
+  immediately after the device configuration is saved, without requiring a
+  plugin restart.
+
 ## 0.1.0-alpha.5 — 2026-09-09
 
 - Make the native Garage Controller state follow Indigo's established

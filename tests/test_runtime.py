@@ -107,6 +107,10 @@ fake_indigo.device = types.SimpleNamespace(turnOn=lambda *args, **kwargs: None)
 class FakePluginBase:
     def __init__(self, *_args):
         self.logger = FakeLogger()
+        self.base_device_updates = []
+
+    def deviceUpdated(self, original, updated):
+        self.base_device_updates.append((original, updated))
 
 
 fake_indigo.PluginBase = FakePluginBase
@@ -214,6 +218,15 @@ class RuntimeTests(unittest.TestCase):
         gate = FakeDevice(100, "Main Gate", props=base_props())
         plugin.deviceStartComm(gate)
         self.assertEqual(1, gate.display_metadata_refreshes)
+
+    def test_device_updates_delegate_to_indigo_reconfiguration_lifecycle(self):
+        plugin = gate_plugin.Plugin("id", "name", "version", {})
+        original = FakeDevice(100, "Main Gate", props=base_props())
+        updated_props = base_props()
+        updated_props.update({"openDeviceId": "3", "closedDeviceId": "2"})
+        updated = FakeDevice(100, "Main Gate", props=updated_props)
+        plugin.deviceUpdated(original, updated)
+        self.assertEqual([(original, updated)], plugin.base_device_updates)
 
     def test_homekit_door_state_contract_matches_homekitlink(self):
         self.assertEqual({

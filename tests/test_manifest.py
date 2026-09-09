@@ -17,7 +17,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(
             "com.berkinet.indigoplugin.gate-controller",
             info["CFBundleIdentifier"])
-        self.assertEqual("0.1.0-alpha.5", info["PluginVersion"])
+        self.assertEqual("0.1.0-alpha.6", info["PluginVersion"])
 
     def test_all_xml_files_parse(self):
         for name in ("Devices.xml", "Actions.xml", "Events.xml"):

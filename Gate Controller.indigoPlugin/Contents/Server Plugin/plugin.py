@@ -355,6 +355,9 @@ class Plugin(indigo.PluginBase):
                 del self.source_index[source_id]
 
     def deviceUpdated(self, original, updated):
+        # Preserve Indigo's standard plugin-device lifecycle. Its base handler
+        # calls deviceStopComm/deviceStartComm when plugin properties change.
+        super().deviceUpdated(original, updated)
         for gate_id in list(self.source_index.get(updated.id, ())):
             runtime = self.runtimes.get(gate_id)
             if runtime is not None:
