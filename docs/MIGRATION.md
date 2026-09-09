@@ -32,14 +32,18 @@ source is selected in the Gate Controller device configuration.
 3. **Timer phase:** Move the open-too-long workflow to the plugin's event or
    Action Group hook. Verify that closing cancels the condition before removing
    the legacy timer logic.
-4. **HomeKit phase:** Point HomeKit integration at the plugin's Garage
-   Controller device and verify all five `doorState` values. Retire Variable
-   Mirror only after open, close, moving, and stopped behavior is confirmed.
+4. **HomeKit phase:** Preserve the existing published `Virtual Front Gate`
+   facade. In one controlled change, disable the old Python writer and select
+   `GateMotion` as the Gate Controller compatibility variable. Verify all five
+   `doorState` values and Siri control. Do not publish the new gate device
+   directly unless replacing the HomeKit accessory and repairing its Home
+   automations is acceptable. See `HOMEKIT.md`.
 5. **Control phase:** Configure `House - gate control`, test one supervised
    pulse, then move gate-control callers to the plugin device/action.
 6. **Cleanup phase:** Disable the `GiBiDi SPIA` Python trigger and the old debug
    triggers. Leave them disabled through a proving period before deleting the
-   script, variables, or triggers.
+   script or debug variables. Retain `GateMotion` while it is the explicit
+   compatibility bridge for the identity-preserving HomeKit interface.
 
 ## Suggested plugin-device functions versus Indigo actions
 

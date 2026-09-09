@@ -122,6 +122,7 @@ class GateRuntime:
                     time.monotonic(), values["lamp"], open_active, closed_active)
                 self._publish_inputs(values)
                 self._inputs_recovered()
+                self.device.updateStateOnServer("onOffState", value=False)
             except Exception as error:
                 self._input_error(error)
                 return
@@ -268,13 +269,14 @@ class GateRuntime:
                 {"key": "fault", "value": state == "fault"},
                 {"key": "status", "value": transition.reason},
                 {"key": "lastTransition", "value": datetime.datetime.now().isoformat(" ", "seconds")},
-                {"key": "onOffState", "value": state != "closed"},
             ]
             if self.machine.last_interval is not None:
                 updates.append({"key": "lampInterval",
                                 "value": round(self.machine.last_interval, 3)})
             self.device.updateStatesOnServer(updates)
             self._manage_open_timer(transition)
+            if notify:
+                self.plugin.publish_compatibility_state(self.device, state)
             self.plugin.logger.info(
                 "Gate state changed: device='%s' %s -> %s (%s)",
                 self.device.name, transition.old, transition.new, transition.reason)
@@ -376,6 +378,21 @@ class Plugin(indigo.PluginBase):
             self.logger.error("Unable to run %s for gate '%s': %s",
                               property_name, device.name, error)
 
+    def publish_compatibility_state(self, device, state):
+        """Feed an existing variable-based facade without hard-coded names."""
+        try:
+            variable_id = int(device.pluginProps.get(
+                "compatibilityVariableId", 0) or 0)
+            if not variable_id:
+                return
+            variable = indigo.variables[variable_id]
+            if str(variable.value) != str(state):
+                indigo.variable.updateValue(variable_id, value=str(state))
+        except Exception as error:
+            self.logger.error(
+                "Unable to update compatibility variable for gate '%s': %s",
+                device.name, error)
+
     def pulseGate(self, action, device):
         try:
             control_id = int(device.pluginProps.get("controlDeviceId", 0) or 0)
@@ -383,6 +400,7 @@ class Plugin(indigo.PluginBase):
                 raise RuntimeError("no gate control device is configured")
             seconds = float(device.pluginProps.get("controlPulseSeconds", 1.0))
             indigo.device.turnOn(control_id, duration=seconds)
+            device.updateStateOnServer("onOffState", value=False)
         except Exception as error:
             self.logger.error("Unable to start gate control pulse for '%s': %s",
                               device.name, error)
@@ -424,6 +442,11 @@ class Plugin(indigo.PluginBase):
     def getActionGroupList(self, filter="", valuesDict=None, typeId="", targetId=0):
         result = [(0, "— None —")]
         result.extend((group.id, group.name) for group in indigo.actionGroups)
+        return result
+
+    def getVariableList(self, filter="", valuesDict=None, typeId="", targetId=0):
+        result = [(0, "— None —")]
+        result.extend((variable.id, variable.name) for variable in indigo.variables)
         return result
 
     def getStateList(self, filter="", valuesDict=None, typeId="", targetId=0):
@@ -513,4 +536,10 @@ class Plugin(indigo.PluginBase):
                 raise ValueError()
         except (TypeError, ValueError):
             errors["openTooLongSeconds"] = "Enter zero to disable, or a positive number"
+        try:
+            variable_id = int(valuesDict.get("compatibilityVariableId", 0) or 0)
+            if variable_id:
+                indigo.variables[variable_id]
+        except Exception:
+            errors["compatibilityVariableId"] = "Selected compatibility variable is unavailable"
         return (False, valuesDict, errors) if errors else (True, valuesDict)
