@@ -8,6 +8,8 @@
 - Consolidate source-device and state lookup used by configuration validation.
 - Add contributor guidance for testing, architecture, manifests, releases, and
   security-sensitive data.
+- Record the public-repository secret scan and enable GitHub secret scanning
+  and push protection.
 
 ## 0.1.0-beta.1 — 2026-09-09
 
