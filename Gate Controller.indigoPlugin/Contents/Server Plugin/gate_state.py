@@ -71,7 +71,9 @@ class GateStateMachine:
             return self._transition("open", "open limit active at startup")
         if closed_active:
             return self._transition("closed", "closed limit active at startup")
-        return self._transition("unknown", "position unknown at startup")
+        transition = self._transition("unknown", "position unknown at startup")
+        return transition or Transition(
+            "unknown", "unknown", "position unknown at startup")
 
     def _transition(self, new_state, reason):
         if new_state == self.state:

@@ -34,13 +34,18 @@ class FakeDevice:
         self.pluginProps = dict(props or {})
         self.enabled = enabled
         self.error = None
+        self.ui_values = {}
 
     def updateStateOnServer(self, key, value=None, **kwargs):
         self.states[key] = value
+        if "uiValue" in kwargs:
+            self.ui_values[key] = kwargs["uiValue"]
 
     def updateStatesOnServer(self, updates):
         for update in updates:
             self.states[update["key"]] = update["value"]
+            if "uiValue" in update:
+                self.ui_values[update["key"]] = update["uiValue"]
 
     def setErrorStateOnServer(self, value):
         self.error = value
@@ -123,11 +128,23 @@ class RuntimeTests(unittest.TestCase):
         runtime = gate_plugin.GateRuntime(owner, gate)
         runtime.start()
         self.assertEqual("closed", gate.states["position"])
+        self.assertEqual("Closed", gate.ui_values["position"])
         self.assertEqual(1, gate.states["doorState"])
         self.assertFalse(gate.states["onOffState"])
         self.assertTrue(gate.states["inputsAvailable"])
         self.assertEqual([], owner.events)
         self.assertEqual([], owner.groups)
+
+    def test_startup_overwrites_a_legacy_numeric_display_with_unknown(self):
+        owner = RuntimePlugin()
+        fake_indigo.devices[3].states["onOffState"] = False
+        gate = FakeDevice(
+            100, "Main Gate", states={"position": 0}, props=base_props())
+        runtime = gate_plugin.GateRuntime(owner, gate)
+        runtime.start()
+        self.assertEqual("unknown", gate.states["position"])
+        self.assertEqual("Unknown", gate.ui_values["position"])
+        self.assertEqual(4, gate.states["doorState"])
 
     def test_second_leaf_must_also_reach_limit(self):
         props = base_props()

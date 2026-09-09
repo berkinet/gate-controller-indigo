@@ -19,10 +19,10 @@
             <Field id="closedActiveWhen" type="menu" defaultValue="true"><Label>Closed detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
 
             <Field id="controlSeparator" type="separator"/>
-            <Field id="controlTitle" type="label" alignText="center"><Label>Gate control output</Label></Field>
-            <Field id="controlDeviceId" type="menu" defaultValue="0"><Label>Momentary control device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/></Field>
+            <Field id="controlTitle" type="label" alignText="center"><Label>GiBiDi command input</Label></Field>
+            <Field id="controlDeviceId" type="menu" defaultValue="0"><Label>Momentary control output device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/></Field>
             <Field id="controlPulseSeconds" type="textfield" defaultValue="1.0"><Label>Control pulse duration (seconds):</Label></Field>
-            <Field id="controlHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Optional. Every standard Open, Close, or Toggle request produces the same momentary pulse; the physical gate controller decides the result.</Label></Field>
+            <Field id="controlHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Select the Indigo output physically wired to the GiBiDi pushbutton/command input (currently House - gate control). Open, Close, and Toggle each produce the same momentary pulse.</Label></Field>
 
             <Field id="secondarySeparator" type="separator"/>
             <Field id="secondaryTitle" type="label" alignText="center"><Label>Optional second-leaf limits</Label></Field>
@@ -77,7 +77,7 @@
         </ConfigUI>
 
         <States>
-            <State id="position" readonly="true"><ValueType><List><Option value="unknown">Unknown</Option><Option value="opening">Opening</Option><Option value="closing">Closing</Option><Option value="open">Open</Option><Option value="closed">Closed</Option><Option value="stopped">Stopped</Option><Option value="fault">Fault</Option><Option value="paused">Paused</Option></List></ValueType><DefaultValue>unknown</DefaultValue><TriggerLabel>Gate position</TriggerLabel><ControlPageLabel>Position</ControlPageLabel></State>
+            <State id="position" readonly="true"><ValueType>String</ValueType><DefaultValue>unknown</DefaultValue><TriggerLabel>Gate state</TriggerLabel><ControlPageLabel>Gate State</ControlPageLabel></State>
             <State id="doorState" readonly="true"><ValueType>Integer</ValueType><DefaultValue>4</DefaultValue><TriggerLabel>HomeKit door state</TriggerLabel><ControlPageLabel>Door State</ControlPageLabel></State>
             <State id="motionActive" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Gate motion active</TriggerLabel><ControlPageLabel>Moving</ControlPageLabel></State>
             <State id="fault" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Gate fault</TriggerLabel><ControlPageLabel>Fault</ControlPageLabel></State>

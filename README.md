@@ -22,6 +22,8 @@ gate.
   limits produce a fault.
 - A Garage Controller relay device with HomeKit-compatible `doorState` values:
   open 0, closed 1, opening 2, closing 3, and stopped/unknown/fault 4.
+- A textual Indigo display state showing Open, Opening, Closing, Closed,
+  Stopped, Unknown, Paused, or Fault.
 - Transition triggers for opening, closing, open, closed, stopped, unknown,
   paused, fault, and open-too-long.
 - Optional Action Group hooks for straightforward migration.
@@ -39,6 +41,8 @@ prevents restarts from replaying announcements and lighting actions.
 3. Create a **Gate Controller** device.
 4. Map the flashing-lamp, fully-open, and fully-closed Indigo device states.
 5. Confirm the active polarity of each input before configuring control output.
+   The control output is the Indigo device physically wired to the GiBiDi
+   pushbutton/command input (`House - gate control` in the current system).
 6. Observe a complete open and close cycle and verify `position`, `doorState`,
    input states, and `lampInterval`.
 7. Add transition triggers for announcements and lighting only after state

@@ -263,7 +263,8 @@ class GateRuntime:
                 return
             state = transition.new
             updates = [
-                {"key": "position", "value": state},
+                {"key": "position", "value": state,
+                 "uiValue": state.capitalize()},
                 {"key": "doorState", "value": DOOR_STATE[state]},
                 {"key": "motionActive", "value": state in ("opening", "closing")},
                 {"key": "fault", "value": state == "fault"},
@@ -275,9 +276,15 @@ class GateRuntime:
                                 "value": round(self.machine.last_interval, 3)})
             self.device.updateStatesOnServer(updates)
             self._manage_open_timer(transition)
-            self.plugin.logger.info(
-                "Gate state changed: device='%s' %s -> %s (%s)",
-                self.device.name, transition.old, transition.new, transition.reason)
+            if transition.old == transition.new:
+                self.plugin.logger.info(
+                    "Gate state synchronized: device='%s' %s (%s)",
+                    self.device.name, transition.new, transition.reason)
+            else:
+                self.plugin.logger.info(
+                    "Gate state changed: device='%s' %s -> %s (%s)",
+                    self.device.name, transition.old, transition.new,
+                    transition.reason)
             if notify:
                 self.plugin.emit(self.device, state)
                 self.plugin.run_action_group(self.device, state + "ActionGroup")

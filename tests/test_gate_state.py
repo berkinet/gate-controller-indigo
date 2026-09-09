@@ -35,7 +35,8 @@ class GateStateMachineTests(unittest.TestCase):
 
     def test_startup_lamp_level_is_not_counted_as_an_edge(self):
         machine = self.machine()
-        machine.synchronize(0.0, True, False, False)
+        transition = machine.synchronize(0.0, True, False, False)
+        self.assertEqual("unknown", transition.new)
         machine.observe(0.1, False, False, False)
         self.assertIsNone(machine.observe(0.8, True, False, False))
         machine.observe(0.9, False, False, False)

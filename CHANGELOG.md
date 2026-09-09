@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.4 — 2026-09-09
+
+- Make the Indigo device display state an explicit textual gate state rather
+  than an enumerated value that could initially appear as numeric zero.
+- Clarify that the momentary control selection is the Indigo output physically
+  wired to the GiBiDi controller's command/pushbutton input.
+
 ## 0.1.0-alpha.3 — 2026-09-09
 
 - Make direct publication of the new Gate Controller device through HomeKitLink

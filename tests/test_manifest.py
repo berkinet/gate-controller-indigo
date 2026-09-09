@@ -17,7 +17,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(
             "com.berkinet.indigoplugin.gate-controller",
             info["CFBundleIdentifier"])
-        self.assertEqual("0.1.0-alpha.3", info["PluginVersion"])
+        self.assertEqual("0.1.0-alpha.4", info["PluginVersion"])
 
     def test_all_xml_files_parse(self):
         for name in ("Devices.xml", "Actions.xml", "Events.xml"):
@@ -40,6 +40,13 @@ class ManifestTests(unittest.TestCase):
         expected = {"opening", "closing", "open", "closed", "stopped",
                     "unknown", "paused", "fault", "openTooLong"}
         self.assertEqual(expected, declared)
+
+    def test_gate_position_is_the_textual_display_state(self):
+        device = ET.parse(SERVER / "Devices.xml").getroot().find("Device")
+        self.assertEqual("position", device.findtext("UiDisplayStateId"))
+        position = next(state for state in device.find("States").findall("State")
+                        if state.attrib["id"] == "position")
+        self.assertEqual("String", position.findtext("ValueType"))
 
 
 if __name__ == "__main__":
