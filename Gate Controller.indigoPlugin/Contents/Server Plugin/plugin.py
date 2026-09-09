@@ -118,10 +118,17 @@ class GateRuntime:
         return input_active(
             self.device.pluginProps.get("delayAfterFirstLeaf", True))
 
-    def _second_leaf_delay(self):
+    def _second_leaf_delay(self, endpoint):
+        if endpoint == "open":
+            key = "secondLeafOpeningDelaySeconds"
+            fallback = self.device.pluginProps.get(
+                "secondLeafDelaySeconds", 0)
+        else:
+            key = "secondLeafClosingDelaySeconds"
+            fallback = 0
         try:
-            return max(0.0, float(self.device.pluginProps.get(
-                "secondLeafDelaySeconds", 0) or 0))
+            return max(0.0, float(
+                self.device.pluginProps.get(key, fallback) or 0))
         except (TypeError, ValueError):
             return 0.0
 
@@ -249,8 +256,10 @@ class GateRuntime:
 
     def _defer_endpoint(self, transition, values):
         if (transition is None or not self._delay_after_first_leaf() or
-                self._second_leaf_delay() <= 0 or
                 transition.new not in ("open", "closed")):
+            return transition
+        delay = self._second_leaf_delay(transition.new)
+        if delay <= 0:
             return transition
         limit_name = "open" if transition.new == "open" else "closed"
         if not values[limit_name]:
@@ -260,7 +269,6 @@ class GateRuntime:
         if self._pending_endpoint != endpoint:
             self._cancel_endpoint_delay("different endpoint observed")
             self._pending_endpoint = endpoint
-            delay = self._second_leaf_delay()
             self._replace_timer(
                 "_endpoint_timer", delay, self._endpoint_delay_fired)
             self.plugin.logger.debug(
@@ -960,12 +968,13 @@ class Plugin(indigo.PluginBase):
             except (TypeError, ValueError):
                 errors[key] = "Enter a number of at least %s" % minimum
         if delay_mode:
-            try:
-                if float(valuesDict.get("secondLeafDelaySeconds", 0)) < 0:
-                    raise ValueError()
-            except (TypeError, ValueError):
-                errors["secondLeafDelaySeconds"] = (
-                    "Enter a delay of zero seconds or greater")
+            for key in ("secondLeafOpeningDelaySeconds",
+                        "secondLeafClosingDelaySeconds"):
+                try:
+                    if float(valuesDict.get(key, 0)) < 0:
+                        raise ValueError()
+                except (TypeError, ValueError):
+                    errors[key] = "Enter a delay of zero seconds or greater"
         try:
             closing = float(valuesDict.get("closingInterval", 0))
             opening = float(valuesDict.get("openingInterval", 0))

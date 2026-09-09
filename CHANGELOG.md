@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0-beta.4 — 2026-09-09
+
+- Split estimated second-leaf completion into independent opening and closing
+  delays, defaulting to 10 and 0 seconds. Legacy single-delay values remain
+  compatible as the opening delay.
+
 ## 0.1.0-beta.3 — 2026-09-09
 
 - Add a default-on second-leaf delay mode that keeps the gate Opening or

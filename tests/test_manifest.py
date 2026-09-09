@@ -17,7 +17,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(
             "com.berkinet.indigoplugin.gate-controller",
             info["CFBundleIdentifier"])
-        self.assertEqual("0.1.0-beta.3", info["PluginVersion"])
+        self.assertEqual("0.1.0-beta.4", info["PluginVersion"])
 
     def test_all_xml_files_parse(self):
         for name in ("Devices.xml", "Actions.xml", "Events.xml",
@@ -76,8 +76,14 @@ class ManifestTests(unittest.TestCase):
         fields = {field.attrib.get("id"): field
                   for field in device.find("ConfigUI").findall("Field")}
         self.assertEqual("true", fields["delayAfterFirstLeaf"].attrib["defaultValue"])
-        self.assertEqual("true", fields["secondLeafDelaySeconds"].attrib[
-            "visibleBindingValue"])
+        self.assertEqual("10", fields["secondLeafOpeningDelaySeconds"].attrib[
+            "defaultValue"])
+        self.assertEqual("0", fields["secondLeafClosingDelaySeconds"].attrib[
+            "defaultValue"])
+        for field_id in ("secondLeafOpeningDelaySeconds",
+                         "secondLeafClosingDelaySeconds"):
+            self.assertEqual("true", fields[field_id].attrib[
+                "visibleBindingValue"])
         for field_id in ("open2DeviceId", "open2StateId", "open2ActiveWhen",
                          "closed2DeviceId", "closed2StateId",
                          "closed2ActiveWhen"):

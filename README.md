@@ -13,9 +13,10 @@ gate.
 
 - Configurable Indigo device/state/polarity mappings for the flashing lamp,
   fully-open detector, and fully-closed detector.
-- Second-leaf completion can use a configurable delay after the first-leaf
-  limit (the default), or optional physical second-leaf open and closed limits.
-  During a configured delay the gate continues to report Opening or Closing.
+- Second-leaf completion can use separate configurable delays after the
+  first-leaf open and closed limits (the default strategy), or optional
+  physical second-leaf limits. During either delay the gate continues to
+  report Opening or Closing. A zero delay reports that endpoint immediately.
 - Optional safety, active-cycle, and lock inputs exposed as diagnostic states.
 - Pulse-rate classification using the existing GiBiDi behavior: approximately
   0.8 seconds means closing and 1.6 seconds means opening by default.
