@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Actions>
+    <Action id="pulseGate" deviceFilter="self.gateController" uiPath="DeviceActions">
+        <Name>Pulse gate control</Name>
+        <CallbackMethod>pulseGate</CallbackMethod>
+    </Action>
+    <Action id="forceGateState" deviceFilter="self.gateController" uiPath="DeviceActions">
+        <Name>Force gate state temporarily</Name>
+        <CallbackMethod>forceGateState</CallbackMethod>
+        <ConfigUI>
+            <Field id="state" type="menu" defaultValue="unknown"><Label>State:</Label><List><Option value="unknown">Unknown</Option><Option value="opening">Opening</Option><Option value="closing">Closing</Option><Option value="open">Open</Option><Option value="closed">Closed</Option><Option value="stopped">Stopped</Option><Option value="paused">Paused</Option></List></Field>
+            <Field id="pauseSeconds" type="textfield" defaultValue="0"><Label>Ignore lamp pulses for (seconds):</Label></Field>
+            <Field id="forceHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Physical limit switches still override a forced state. Zero resumes pulse processing immediately.</Label></Field>
+        </ConfigUI>
+    </Action>
+    <Action id="clearGateFault" deviceFilter="self.gateController" uiPath="DeviceActions">
+        <Name>Clear and re-evaluate gate fault</Name>
+        <CallbackMethod>clearGateFault</CallbackMethod>
+    </Action>
+</Actions>

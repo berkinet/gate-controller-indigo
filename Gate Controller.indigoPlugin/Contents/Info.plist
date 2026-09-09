@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PluginVersion</key>
+	<string>0.1.0-alpha.1</string>
+	<key>ServerApiVersion</key>
+	<string>3.0</string>
+	<key>IwsApiVersion</key>
+	<string>1.0.0</string>
+	<key>CFBundleDisplayName</key>
+	<string>Gate Controller</string>
+	<key>CFBundleName</key>
+	<string>Gate Controller</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.berkinet.indigoplugin.gate-controller</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0</string>
+	<key>CFBundleURLTypes</key>
+	<array><dict><key>CFBundleURLName</key><string>https://github.com/berkinet/gate-controller-indigo</string></dict></array>
+</dict>
+</plist>

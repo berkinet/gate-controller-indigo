@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Events>
+    <SupportURL>https://github.com/berkinet/gate-controller-indigo</SupportURL>
+    <Event id="opening" deviceFilter="self.gateController"><Name>Gate started opening</Name><Label>Gate started opening</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+    <Event id="closing" deviceFilter="self.gateController"><Name>Gate started closing</Name><Label>Gate started closing</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+    <Event id="open" deviceFilter="self.gateController"><Name>Gate became fully open</Name><Label>Gate became fully open</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+    <Event id="closed" deviceFilter="self.gateController"><Name>Gate became fully closed</Name><Label>Gate became fully closed</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+    <Event id="stopped" deviceFilter="self.gateController"><Name>Gate motion stopped unclassified</Name><Label>Gate motion stopped unclassified</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+    <Event id="unknown" deviceFilter="self.gateController"><Name>Gate position became unknown</Name><Label>Gate position became unknown</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+    <Event id="paused" deviceFilter="self.gateController"><Name>Gate sensing was paused</Name><Label>Gate sensing was paused</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+    <Event id="fault" deviceFilter="self.gateController"><Name>Gate entered a fault state</Name><Label>Gate entered a fault state</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+    <Event id="openTooLong" deviceFilter="self.gateController"><Name>Gate remained open too long</Name><Label>Gate remained open too long</Label><ConfigUI><Field id="gateDeviceId" type="menu"><Label>Gate:</Label><List class="self" method="getGateDeviceList"/></Field></ConfigUI></Event>
+</Events>

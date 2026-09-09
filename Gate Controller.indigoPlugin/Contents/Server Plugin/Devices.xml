@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Devices>
+    <Device id="gateController" type="relay" subType="kRelayDeviceSubType.GarageController">
+        <Name>Gate Controller</Name>
+        <ConfigUI>
+            <Field id="requiredTitle" type="label" alignText="center"><Label>Required gate inputs</Label></Field>
+            <Field id="requiredHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Select the Indigo device and state for each physical signal. Active polarity is independently configurable.</Label></Field>
+
+            <Field id="lampDeviceId" type="menu"><Label>Flashing lamp device:</Label><List class="self" method="getSourceDeviceList"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="lampStateId" type="menu"><Label>Flashing lamp state:</Label><List class="self" method="getStateList" filter="lamp" dynamicReload="true"/></Field>
+            <Field id="lampActiveWhen" type="menu" defaultValue="true"><Label>Lamp is active when state is:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+
+            <Field id="openDeviceId" type="menu"><Label>Fully-open detector device:</Label><List class="self" method="getSourceDeviceList"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="openStateId" type="menu"><Label>Fully-open detector state:</Label><List class="self" method="getStateList" filter="open" dynamicReload="true"/></Field>
+            <Field id="openActiveWhen" type="menu" defaultValue="true"><Label>Open detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+
+            <Field id="closedDeviceId" type="menu"><Label>Fully-closed detector device:</Label><List class="self" method="getSourceDeviceList"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="closedStateId" type="menu"><Label>Fully-closed detector state:</Label><List class="self" method="getStateList" filter="closed" dynamicReload="true"/></Field>
+            <Field id="closedActiveWhen" type="menu" defaultValue="true"><Label>Closed detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+
+            <Field id="controlSeparator" type="separator"/>
+            <Field id="controlTitle" type="label" alignText="center"><Label>Gate control output</Label></Field>
+            <Field id="controlDeviceId" type="menu" defaultValue="0"><Label>Momentary control device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/></Field>
+            <Field id="controlPulseSeconds" type="textfield" defaultValue="1.0"><Label>Control pulse duration (seconds):</Label></Field>
+            <Field id="controlHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Optional. Every standard Open, Close, or Toggle request produces the same momentary pulse; the physical gate controller decides the result.</Label></Field>
+
+            <Field id="secondarySeparator" type="separator"/>
+            <Field id="secondaryTitle" type="label" alignText="center"><Label>Optional second-leaf limits</Label></Field>
+            <Field id="secondaryHelp" type="label" fontSize="small" fontColor="darkgray"><Label>When configured, both first- and second-leaf limits must be active before the whole gate is reported fully open or closed.</Label></Field>
+            <Field id="open2DeviceId" type="menu" defaultValue="0"><Label>Second fully-open device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="open2StateId" type="menu"><Label>Second fully-open state:</Label><List class="self" method="getStateList" filter="open2" dynamicReload="true"/></Field>
+            <Field id="open2ActiveWhen" type="menu" defaultValue="true"><Label>Second open detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+            <Field id="closed2DeviceId" type="menu" defaultValue="0"><Label>Second fully-closed device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="closed2StateId" type="menu"><Label>Second fully-closed state:</Label><List class="self" method="getStateList" filter="closed2" dynamicReload="true"/></Field>
+            <Field id="closed2ActiveWhen" type="menu" defaultValue="true"><Label>Second closed detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+
+            <Field id="diagnosticSeparator" type="separator"/>
+            <Field id="diagnosticTitle" type="label" alignText="center"><Label>Optional diagnostic inputs</Label></Field>
+            <Field id="diagnosticHelp" type="label" fontSize="small" fontColor="darkgray"><Label>These inputs are exposed as plugin device states for Indigo conditions and troubleshooting. They do not autonomously move the gate.</Label></Field>
+            <Field id="safety1DeviceId" type="menu" defaultValue="0"><Label>Safety input 1 device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="safety1StateId" type="menu"><Label>Safety input 1 state:</Label><List class="self" method="getStateList" filter="safety1" dynamicReload="true"/></Field>
+            <Field id="safety1ActiveWhen" type="menu" defaultValue="true"><Label>Safety input 1 is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+            <Field id="safety2DeviceId" type="menu" defaultValue="0"><Label>Safety input 2 device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="safety2StateId" type="menu"><Label>Safety input 2 state:</Label><List class="self" method="getStateList" filter="safety2" dynamicReload="true"/></Field>
+            <Field id="safety2ActiveWhen" type="menu" defaultValue="true"><Label>Safety input 2 is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+            <Field id="cycleDeviceId" type="menu" defaultValue="0"><Label>Active-cycle device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="cycleStateId" type="menu"><Label>Active-cycle state:</Label><List class="self" method="getStateList" filter="cycle" dynamicReload="true"/></Field>
+            <Field id="cycleActiveWhen" type="menu" defaultValue="true"><Label>Cycle is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+            <Field id="lock1DeviceId" type="menu" defaultValue="0"><Label>Lock input 1 device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="lock1StateId" type="menu"><Label>Lock input 1 state:</Label><List class="self" method="getStateList" filter="lock1" dynamicReload="true"/></Field>
+            <Field id="lock1ActiveWhen" type="menu" defaultValue="true"><Label>Lock input 1 is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+            <Field id="lock2DeviceId" type="menu" defaultValue="0"><Label>Lock input 2 device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="lock2StateId" type="menu"><Label>Lock input 2 state:</Label><List class="self" method="getStateList" filter="lock2" dynamicReload="true"/></Field>
+            <Field id="lock2ActiveWhen" type="menu" defaultValue="true"><Label>Lock input 2 is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+
+            <Field id="timingSeparator" type="separator"/>
+            <Field id="timingTitle" type="label" alignText="center"><Label>Motion classifier and timers</Label></Field>
+            <Field id="debounceSeconds" type="textfield" defaultValue="0.10"><Label>Lamp debounce (seconds):</Label></Field>
+            <Field id="idleTimeoutSeconds" type="textfield" defaultValue="2.5"><Label>No-pulse idle timeout (seconds):</Label></Field>
+            <Field id="closingInterval" type="textfield" defaultValue="0.80"><Label>Closing pulse interval (seconds):</Label></Field>
+            <Field id="openingInterval" type="textfield" defaultValue="1.60"><Label>Opening pulse interval (seconds):</Label></Field>
+            <Field id="intervalBand" type="textfield" defaultValue="0.10"><Label>Pulse interval tolerance (+/- seconds):</Label></Field>
+            <Field id="openTooLongSeconds" type="textfield" defaultValue="1800"><Label>Open-too-long delay (seconds):</Label></Field>
+            <Field id="inputErrorReminderSeconds" type="textfield" defaultValue="3600"><Label>Input-error reminder interval (seconds):</Label></Field>
+            <Field id="timingHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Set open-too-long to 0 to disable it. Repeated identical input errors are suppressed until the reminder interval or recovery.</Label></Field>
+
+            <Field id="hooksSeparator" type="separator"/>
+            <Field id="hooksTitle" type="label" alignText="center"><Label>Optional Action Group hooks</Label></Field>
+            <Field id="hooksHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Prefer plugin triggers for announcements and site-specific lighting. These hooks are provided for simple direct migrations.</Label></Field>
+            <Field id="openingActionGroup" type="menu" defaultValue="0"><Label>On opening:</Label><List class="self" method="getActionGroupList"/></Field>
+            <Field id="closingActionGroup" type="menu" defaultValue="0"><Label>On closing:</Label><List class="self" method="getActionGroupList"/></Field>
+            <Field id="openActionGroup" type="menu" defaultValue="0"><Label>On fully open:</Label><List class="self" method="getActionGroupList"/></Field>
+            <Field id="closedActionGroup" type="menu" defaultValue="0"><Label>On fully closed:</Label><List class="self" method="getActionGroupList"/></Field>
+            <Field id="stoppedActionGroup" type="menu" defaultValue="0"><Label>On stopped/unclassified:</Label><List class="self" method="getActionGroupList"/></Field>
+            <Field id="faultActionGroup" type="menu" defaultValue="0"><Label>On fault:</Label><List class="self" method="getActionGroupList"/></Field>
+            <Field id="openTooLongActionGroup" type="menu" defaultValue="0"><Label>On open too long:</Label><List class="self" method="getActionGroupList"/></Field>
+        </ConfigUI>
+
+        <States>
+            <State id="position" readonly="true"><ValueType><List><Option value="unknown">Unknown</Option><Option value="opening">Opening</Option><Option value="closing">Closing</Option><Option value="open">Open</Option><Option value="closed">Closed</Option><Option value="stopped">Stopped</Option><Option value="fault">Fault</Option><Option value="paused">Paused</Option></List></ValueType><DefaultValue>unknown</DefaultValue><TriggerLabel>Gate position</TriggerLabel><ControlPageLabel>Position</ControlPageLabel></State>
+            <State id="doorState" readonly="true"><ValueType>Integer</ValueType><DefaultValue>4</DefaultValue><TriggerLabel>HomeKit door state</TriggerLabel><ControlPageLabel>Door State</ControlPageLabel></State>
+            <State id="motionActive" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Gate motion active</TriggerLabel><ControlPageLabel>Moving</ControlPageLabel></State>
+            <State id="fault" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Gate fault</TriggerLabel><ControlPageLabel>Fault</ControlPageLabel></State>
+            <State id="inputsAvailable" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Inputs available</TriggerLabel><ControlPageLabel>Inputs Available</ControlPageLabel></State>
+            <State id="openTooLong" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Gate open too long</TriggerLabel><ControlPageLabel>Open Too Long</ControlPageLabel></State>
+            <State id="lampInterval" readonly="true"><ValueType>Number</ValueType><DefaultValue>0</DefaultValue><TriggerLabel>Lamp interval</TriggerLabel><ControlPageLabel>Lamp Interval</ControlPageLabel></State>
+            <State id="status" readonly="true"><ValueType>String</ValueType><DefaultValue>initializing</DefaultValue><TriggerLabel>Gate status</TriggerLabel><ControlPageLabel>Status</ControlPageLabel></State>
+            <State id="lastTransition" readonly="true"><ValueType>String</ValueType><DefaultValue></DefaultValue><TriggerLabel>Last transition</TriggerLabel><ControlPageLabel>Last Transition</ControlPageLabel></State>
+            <State id="lampInputActive" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Lamp input</TriggerLabel><ControlPageLabel>Lamp Input</ControlPageLabel></State>
+            <State id="openLimitActive" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Open limit</TriggerLabel><ControlPageLabel>Open Limit</ControlPageLabel></State>
+            <State id="closedLimitActive" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Closed limit</TriggerLabel><ControlPageLabel>Closed Limit</ControlPageLabel></State>
+            <State id="open2LimitActive" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Second open limit</TriggerLabel><ControlPageLabel>Open Limit 2</ControlPageLabel></State>
+            <State id="closed2LimitActive" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Second closed limit</TriggerLabel><ControlPageLabel>Closed Limit 2</ControlPageLabel></State>
+            <State id="safety1Active" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Safety input 1</TriggerLabel><ControlPageLabel>Safety 1</ControlPageLabel></State>
+            <State id="safety2Active" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Safety input 2</TriggerLabel><ControlPageLabel>Safety 2</ControlPageLabel></State>
+            <State id="cycleActive" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Active cycle</TriggerLabel><ControlPageLabel>Active Cycle</ControlPageLabel></State>
+            <State id="lock1Active" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Lock input 1</TriggerLabel><ControlPageLabel>Lock 1</ControlPageLabel></State>
+            <State id="lock2Active" readonly="true"><ValueType>Boolean</ValueType><DefaultValue>false</DefaultValue><TriggerLabel>Lock input 2</TriggerLabel><ControlPageLabel>Lock 2</ControlPageLabel></State>
+        </States>
+        <UiDisplayStateId>position</UiDisplayStateId>
+    </Device>
+</Devices>
