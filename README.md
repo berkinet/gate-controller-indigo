@@ -22,8 +22,6 @@ gate.
   limits produce a fault.
 - A Garage Controller relay device with HomeKit-compatible `doorState` values:
   open 0, closed 1, opening 2, closing 3, and stopped/unknown/fault 4.
-- An optional transition mirror for preserving an existing variable-backed
-  HomeKitLink Siri accessory and its Indigo variable-change announcements.
 - Transition triggers for opening, closing, open, closed, stopped, unknown,
   paused, fault, and open-too-long.
 - Optional Action Group hooks for straightforward migration.
@@ -60,8 +58,7 @@ events. This keeps the gate model testable without hiding house-specific policy
 inside Python.
 
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the staged cutover and
-[docs/HOMEKIT.md](docs/HOMEKIT.md) for the identity-preserving HomeKitLink Siri
-migration. See
+[docs/HOMEKIT.md](docs/HOMEKIT.md) for direct HomeKitLink Siri publication. See
 [SECURITY.md](SECURITY.md) for the credential cleanup identified during the
 existing-automation review.
 

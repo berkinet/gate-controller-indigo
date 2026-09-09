@@ -1,4 +1,4 @@
-# Preserving the HomeKitLink Siri interface
+# Replacing the HomeKitLink Siri gate accessory
 
 The existing gate is not published directly from the old motion script. Indigo
 device **Virtual Front Gate** is the HomeKitLink Siri boundary:
@@ -34,41 +34,39 @@ the single-button GiBiDi controller. Its `onOffState` remains a momentary
 command surface and is reset to Off; gate position is carried only by
 `doorState` and `position`.
 
-## Identity-preserving migration (recommended)
+## Direct publication
 
 HomeKitLink derives the HomeKit accessory ID partly from the Indigo device ID.
 Publishing a newly created Gate Controller device therefore creates a different
 HomeKit accessory even when it has the same name. Home scenes and automations
-may then reference the old accessory.
+that reference **Virtual Front Gate** must be reassigned to the replacement.
 
-To preserve the existing accessory identity and Siri/Home messaging:
+The accepted migration replaces the old accessory while preserving its visible
+interface and state semantics:
 
-1. Keep **Virtual Front Gate** published to HomeKitLink with its existing name,
-   subtype, bridge, source state, and motion setting.
-2. Validate Gate Controller in observer mode without a compatibility variable.
-3. In one controlled cutover, disable the old `gate_motion.py` writer and select
-   `GateMotion` in Gate Controller's **Mirror transitions to variable** field.
-4. Leave Variable Mirror pointed at `GateMotion`. It will continue converting
-   the exact strings into `doorState`, so the existing HomeKit accessory ID and
-   messaging remain unchanged.
-5. Initially leave the Variable Mirror command path pointed directly at
-   `House - gate control`. If all commands must later pass through Gate
-   Controller, use one Indigo Action Group containing **Pulse gate control**;
-   configure Variable Mirror to execute that Action Group. Do not point its
-   timed pulse directly at the Gate Controller relay, because the timed Turn
-   Off would otherwise be a second gate command.
-6. Test “open Front Gate” and “close Front Gate,” plus Home app status during a
+1. Create the plugin device with a descriptive Indigo name such as **GiBiDi
+   Front Gate** and validate it in observer mode over complete open and close
+   cycles.
+2. Configure its momentary control device as `House - gate control` and perform
+   one supervised Indigo pulse test.
+3. Record the old accessory's room, favorites, notification settings, scenes,
+   and Home automations before removing it.
+4. In HomeKitLink Siri, stop publishing **Virtual Front Gate**.
+5. Publish **GiBiDi Front Gate** on bridge `583879` using:
+
+   - HomeKit name: **Front Gate**
+   - subtype: **GarageDoor**
+   - source state: **doorState**
+   - motion support: enabled
+
+6. Restart or refresh the HomeKitLink bridge as required, remove any stale old
+   accessory from Home, and place the replacement in the previous room.
+7. Reassign every scene and Home automation that referenced the old accessory,
+   then restore favorite and notification settings.
+8. Test “open Front Gate” and “close Front Gate,” plus Home status during a
    complete open, close, and interrupted/stopped cycle.
 
-Gate Controller deliberately does not write the compatibility variable during
-plugin startup. That avoids replaying existing variable-change announcements,
-lighting actions, or other legacy triggers after an Indigo restart.
-
-## Direct publication later
-
-The Gate Controller device can be published directly as a HomeKitLink
-`GarageDoor` using `doorState`, motion enabled, and the HomeKit name **Front
-Gate**. This removes the Variable Mirror facade, but HomeKit will see a new
-accessory because its Indigo device ID is different. Use that route only during
-an intentional Home migration where affected scenes and automations can be
-repaired.
+After this cutover, HomeKit status and commands use Gate Controller directly;
+Variable Mirror and `GateMotion` are no longer part of the HomeKit path. Remove
+them only after the Indigo announcement, lighting, alarm, and camera triggers
+have also been migrated to Gate Controller transition events.

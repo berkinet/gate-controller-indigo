@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.3 — 2026-09-09
+
+- Make direct publication of the new Gate Controller device through HomeKitLink
+  Siri the selected migration path.
+- Remove the temporary Variable Mirror/`GateMotion` compatibility output.
+- Add the exact **Front Gate** publication settings and accessory-replacement
+  checklist.
+
 ## 0.1.0-alpha.2 — 2026-09-09
 
 - Preserve the Variable Mirror/HomeKitLink Siri command convention by keeping

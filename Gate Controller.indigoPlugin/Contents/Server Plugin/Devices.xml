@@ -24,11 +24,6 @@
             <Field id="controlPulseSeconds" type="textfield" defaultValue="1.0"><Label>Control pulse duration (seconds):</Label></Field>
             <Field id="controlHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Optional. Every standard Open, Close, or Toggle request produces the same momentary pulse; the physical gate controller decides the result.</Label></Field>
 
-            <Field id="compatibilitySeparator" type="separator"/>
-            <Field id="compatibilityTitle" type="label" alignText="center"><Label>HomeKit and legacy-trigger compatibility</Label></Field>
-            <Field id="compatibilityVariableId" type="menu" defaultValue="0"><Label>Mirror transitions to variable:</Label><List class="self" method="getVariableList"/></Field>
-            <Field id="compatibilityHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Optional migration bridge. Select the existing motion variable only after disabling its old Python writer. This preserves a published Variable Mirror device, HomeKit accessory identity, and variable-change announcements. Startup never writes this variable.</Label></Field>
-
             <Field id="secondarySeparator" type="separator"/>
             <Field id="secondaryTitle" type="label" alignText="center"><Label>Optional second-leaf limits</Label></Field>
             <Field id="secondaryHelp" type="label" fontSize="small" fontColor="darkgray"><Label>When configured, both first- and second-leaf limits must be active before the whole gate is reported fully open or closed.</Label></Field>
