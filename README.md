@@ -36,9 +36,11 @@ gate.
   signal during operation, remains steadily on while fully or locked open, and
   turns off when closed. Output polarity can be inverted.
 - Deduplicated source-input errors with explicit recovery reporting.
-- Four selectable logging levels. At the default Informational level, normal
-  operation logs only `Gate opening` and `Gate closed.`; Debugging adds detailed
-  input, pulse timing, classification, timer, action, and lifecycle diagnostics.
+- Five selectable logging levels. At the default Informational level, normal
+  operation logs only `Gate opening` and `Gate closed.`. Debugging adds a concise
+  timeline of configured non-lock input edges and gate-state changes. Detailed
+  debugging adds lock activity, full input snapshots, pulse timing and
+  classification, timers, actions, and lifecycle diagnostics.
 
 Plugin startup synchronizes current input levels without counting an already-on
 lamp as a pulse and without emitting transition triggers or Action Groups. This

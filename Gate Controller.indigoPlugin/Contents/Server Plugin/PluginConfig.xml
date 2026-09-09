@@ -3,6 +3,7 @@
     <Field id="loggingLevel" type="menu" defaultValue="20">
         <Label>Logging level:</Label>
         <List>
+            <Option value="5">Detailed debugging</Option>
             <Option value="10">Debugging</Option>
             <Option value="20">Informational</Option>
             <Option value="30">Warning</Option>

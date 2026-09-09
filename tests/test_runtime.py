@@ -23,6 +23,9 @@ class FakeLogger:
     def debug(self, message, *args):
         self._record("debug", message, *args)
 
+    def log(self, level, message, *args):
+        self._record("detailed" if level == 5 else str(level), message, *args)
+
     def info(self, message, *args):
         self._record("info", message, *args)
 
@@ -218,7 +221,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(gate.states["inputsAvailable"])
         self.assertIsNone(gate.error)
         self.assertTrue(any("recovered" in message for level, message
-                            in owner.logger.records if level == "debug"))
+                            in owner.logger.records if level == "detailed"))
 
     def test_only_opening_and_closed_are_routine_information(self):
         owner = RuntimePlugin()
@@ -242,10 +245,33 @@ class RuntimeTests(unittest.TestCase):
              if level == "info"])
         debug_messages = [message for level, message in owner.logger.records
                           if level == "debug"]
+        detailed_messages = [message for level, message in owner.logger.records
+                             if level == "detailed"]
+        self.assertTrue(any("SPIA: on" in message
+                            for message in debug_messages))
         self.assertTrue(any("lamp pulse accepted" in message
-                            for message in debug_messages))
+                            for message in detailed_messages))
         self.assertTrue(any("state changed" in message
-                            for message in debug_messages))
+                            for message in detailed_messages))
+
+    def test_debug_input_timeline_excludes_lock_edges(self):
+        owner = RuntimePlugin()
+        gate = FakeDevice(100, "Main Gate", props=base_props())
+        runtime = gate_plugin.GateRuntime(owner, gate)
+        values = {name: None for name in runtime.INPUTS}
+        values.update({"lamp": False, "open": False, "closed": True,
+                       "lock1": False, "lock2": False})
+        runtime._publish_inputs(values, log_changes=False)
+        owner.logger.records.clear()
+
+        values.update({"lamp": True, "lock1": True, "lock2": True})
+        runtime._publish_inputs(values)
+
+        debug_messages = [message for level, message in owner.logger.records
+                          if level == "debug"]
+        self.assertEqual(["SPIA: on"], debug_messages)
+        self.assertTrue(gate.states["lock1Active"])
+        self.assertTrue(gate.states["lock2Active"])
 
     def test_force_cannot_override_an_active_physical_limit(self):
         owner = RuntimePlugin()
@@ -366,17 +392,21 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(gate.states["onOffState"])
         self.assertEqual("closed", gate.states["position"])
 
-    def test_logging_preference_uses_the_four_requested_levels(self):
+    def test_logging_preference_supports_debug_and_detailed_debug(self):
         plugin = gate_plugin.Plugin(
             "id", "name", "version", {"loggingLevel": "30"})
         self.assertEqual(30, plugin.log_level)
-        self.assertEqual(10, plugin.logger.level)
+        self.assertEqual(5, plugin.logger.level)
         self.assertEqual(30, plugin.indigo_log_handler.level)
         self.assertEqual(30, plugin.plugin_file_handler.level)
 
         plugin.closedPrefsConfigUi({"loggingLevel": "10"}, False)
         self.assertEqual(10, plugin.log_level)
         self.assertEqual(10, plugin.indigo_log_handler.level)
+
+        plugin.closedPrefsConfigUi({"loggingLevel": "5"}, False)
+        self.assertEqual(5, plugin.log_level)
+        self.assertEqual(5, plugin.indigo_log_handler.level)
 
     def test_fractional_control_duration_is_rejected_without_raw_exception(self):
         plugin = gate_plugin.Plugin("id", "name", "version", {})

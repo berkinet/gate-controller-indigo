@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0-beta.2 — 2026-09-09
+
+- Add a Detailed debugging logging level containing the former Debugging
+  diagnostics, and make Debugging a concise timeline of configured non-lock
+  input edges and gate-state changes. Lock activity remains available through
+  Indigo states and Detailed debugging without flooding the normal debug log.
 - Add continuous integration for the unit suite and branch-coverage reporting.
 - Document the main Indigo lifecycle and runtime boundaries, with focused type
   hints for configuration helpers.

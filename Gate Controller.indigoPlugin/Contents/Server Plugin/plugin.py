@@ -13,6 +13,9 @@ import indigo
 from gate_state import GateStateMachine, input_active
 
 
+DETAILED = 5
+logging.addLevelName(DETAILED, "DETAILED")
+
 DOOR_STATE = {
     "open": 0, "closed": 1, "opening": 2, "closing": 3,
     "stopped": 4, "unknown": 4, "fault": 4, "paused": 4,
@@ -100,7 +103,7 @@ class GateRuntime:
             open_active = closed_active = True
         return values, open_active, closed_active
 
-    def _publish_inputs(self, values):
+    def _publish_inputs(self, values, log_changes=True):
         keys = {
             "lamp": "lampInputActive",
             "open": "openLimitActive",
@@ -113,12 +116,29 @@ class GateRuntime:
             "lock1": "lock1Active",
             "lock2": "lock2Active",
         }
+        labels = {
+            "lamp": "SPIA",
+            "open": "Open limit",
+            "closed": "Closed limit",
+            "open2": "Open limit 2",
+            "closed2": "Closed limit 2",
+            "safety1": "Safety 1",
+            "safety2": "Safety 2",
+            "cycle": "Cycle",
+            "lock1": "Lock 1",
+            "lock2": "Lock 2",
+        }
         updates = []
         for prefix, value in values.items():
             state_id = keys[prefix]
             normalized = bool(value)
             if self.device.states.get(state_id) != normalized:
                 updates.append({"key": state_id, "value": normalized})
+                if (log_changes and value is not None and
+                        prefix not in ("lock1", "lock2")):
+                    self.plugin.logger.debug(
+                        "%s: %s", labels[prefix],
+                        "on" if normalized else "off")
         if updates:
             self.device.updateStatesOnServer(updates)
 
@@ -127,7 +147,7 @@ class GateRuntime:
         with self._lock:
             try:
                 values, open_active, closed_active = self._read_inputs()
-                self.plugin.logger.debug(
+                self.plugin.logger.log(DETAILED,
                     "Gate monitoring starting: device='%s' inputs=[%s] "
                     "debounce=%.3fs idle=%.3fs closing=%.3fs opening=%.3fs "
                     "band=%.3fs",
@@ -136,7 +156,7 @@ class GateRuntime:
                     self.machine.fast, self.machine.slow, self.machine.band)
                 transition = self.machine.synchronize(
                     time.monotonic(), values["lamp"], open_active, closed_active)
-                self._publish_inputs(values)
+                self._publish_inputs(values, log_changes=False)
                 self._inputs_recovered()
             except Exception as error:
                 self._input_error(error)
@@ -153,7 +173,7 @@ class GateRuntime:
         for timer in timers:
             if timer is not None:
                 timer.cancel()
-        self.plugin.logger.debug(
+        self.plugin.logger.log(DETAILED,
             "Gate monitoring stopped: device='%s'", self.device.name)
 
     @staticmethod
@@ -177,7 +197,7 @@ class GateRuntime:
             if self._idle_timer is not None:
                 self._idle_timer.cancel()
                 self._idle_timer = None
-                self.plugin.logger.debug(
+                self.plugin.logger.log(DETAILED,
                     "Gate idle timer canceled: device='%s'",
                     self.device.name)
             return
@@ -185,7 +205,7 @@ class GateRuntime:
         action = "re-armed" if self._idle_timer is not None else "armed"
         self._replace_timer(
             "_idle_timer", delay, self._idle_fired)
-        self.plugin.logger.debug(
+        self.plugin.logger.log(DETAILED,
             "Gate idle timer %s: device='%s' delay=%.3fs",
             action, self.device.name, delay)
 
@@ -194,7 +214,7 @@ class GateRuntime:
             if self._stopped or generation != self._generation:
                 return
             self._idle_timer = None
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate idle timer fired: device='%s' last_motion=%s",
                 self.device.name, self.machine.last_motion)
             try:
@@ -236,14 +256,14 @@ class GateRuntime:
             self.device.updateStateOnServer("openTooLong", value=False)
             if seconds > 0:
                 self._replace_timer("_open_timer", seconds, self._open_too_long_fired)
-                self.plugin.logger.debug(
+                self.plugin.logger.log(DETAILED,
                     "Gate open-too-long timer armed: device='%s' delay=%.3fs",
                     self.device.name, seconds)
         elif transition.new != "open":
             if self._open_timer is not None:
                 self._open_timer.cancel()
                 self._open_timer = None
-                self.plugin.logger.debug(
+                self.plugin.logger.log(DETAILED,
                     "Gate open-too-long timer canceled: device='%s'",
                     self.device.name)
             self.device.updateStateOnServer("openTooLong", value=False)
@@ -272,7 +292,7 @@ class GateRuntime:
     def _inputs_recovered(self):
         recovered = self._input_error_message is not None
         if recovered:
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate inputs recovered: device='%s'", self.device.name)
         self._input_error_message = None
         self._input_error_logged_at = 0.0
@@ -340,14 +360,14 @@ class GateRuntime:
             self._indicator_commanded = desired
             self._indicator_error_message = None
             self._indicator_error_logged_at = 0.0
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate status indicator set: device='%s' indicator='%s' "
                 "output=%s position=%s lamp=%s",
                 self.device.name, indicator.name,
                 "on" if desired else "off", self.machine.state,
                 str(bool(lamp_active)).lower())
             if recovered:
-                self.plugin.logger.debug(
+                self.plugin.logger.log(DETAILED,
                     "Gate status indicator recovered: device='%s' "
                     "indicator='%s'", self.device.name, indicator.name)
         except Exception as error:
@@ -379,32 +399,32 @@ class GateRuntime:
     def _debug_observation(self, reason, now, values, open_active,
                            closed_active, previous_lamp, previous_edge,
                            transition):
-        self.plugin.logger.debug(
+        self.plugin.logger.log(DETAILED,
             "Gate inputs observed: device='%s' reason='%s' [%s]",
             self.device.name, reason, self._format_inputs(values))
 
         rising_edge = bool(values["lamp"]) and not previous_lamp
         if open_active and closed_active:
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate limit override: device='%s' both open and closed "
                 "limits are active", self.device.name)
             return
         if open_active or closed_active:
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate limit override: device='%s' %s limit is active",
                 self.device.name, "open" if open_active else "closed")
             return
         if not rising_edge:
             return
         if now < self.machine.paused_until:
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate lamp pulse ignored while paused: device='%s' "
                 "remaining=%.3fs", self.device.name,
                 self.machine.paused_until - now)
             return
         if (previous_edge is not None and
                 now - previous_edge < self.machine.debounce):
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate lamp pulse ignored by debounce: device='%s' "
                 "interval=%.3fs minimum=%.3fs", self.device.name,
                 now - previous_edge, self.machine.debounce)
@@ -421,11 +441,11 @@ class GateRuntime:
             detail = "%.3fs classified as opening" % interval
         else:
             detail = "%.3fs out of classification bands" % interval
-        self.plugin.logger.debug(
+        self.plugin.logger.log(DETAILED,
             "Gate lamp pulse accepted: device='%s' %s",
             self.device.name, detail)
         if transition is None and interval is not None:
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate motion unchanged after lamp pulse: device='%s' "
                 "state=%s", self.device.name, self.machine.state)
 
@@ -458,14 +478,17 @@ class GateRuntime:
             self.device.updateStateImageOnServer(image)
             self._manage_open_timer(transition)
             if transition.old == transition.new:
-                self.plugin.logger.debug(
+                self.plugin.logger.log(DETAILED,
                     "Gate state synchronized: device='%s' %s (%s)",
                     self.device.name, transition.new, transition.reason)
             else:
-                self.plugin.logger.debug(
+                self.plugin.logger.log(DETAILED,
                     "Gate state changed: device='%s' %s -> %s (%s)",
                     self.device.name, transition.old, transition.new,
                     transition.reason)
+            if notify and state not in ("opening", "closed"):
+                self.plugin.logger.debug(
+                    "Gate state: %s", state.capitalize())
             if state == "fault":
                 self.plugin.logger.warning(
                     "Gate fault: device='%s' %s",
@@ -486,7 +509,7 @@ class GateRuntime:
         """Force a diagnostic state, subject to authoritative limit inputs."""
         with self._lock:
             now = time.monotonic()
-            self.plugin.logger.debug(
+            self.plugin.logger.log(DETAILED,
                 "Gate state force requested: device='%s' state=%s pause=%.3fs",
                 self.device.name, state, pause_seconds)
             transition = self.machine.force(state, now, pause_seconds)
@@ -521,11 +544,13 @@ class Plugin(indigo.PluginBase):
             level = int(value)
         except (TypeError, ValueError):
             level = logging.INFO
-        if level not in (logging.DEBUG, logging.INFO,
+        if level not in (DETAILED, logging.DEBUG, logging.INFO,
                          logging.WARNING, logging.ERROR):
             level = logging.INFO
         self.log_level = level
-        self.logger.setLevel(logging.DEBUG)
+        # Keep the logger itself open to the most verbose supported level;
+        # handlers enforce the user's selected threshold.
+        self.logger.setLevel(DETAILED)
         for name in ("indigo_log_handler", "plugin_file_handler"):
             handler = getattr(self, name, None)
             if handler is not None:
@@ -534,7 +559,7 @@ class Plugin(indigo.PluginBase):
     def startup(self):
         """Subscribe to Indigo device changes when the plugin starts."""
         indigo.devices.subscribeToChanges()
-        self.logger.debug(
+        self.logger.log(DETAILED,
             "Gate Controller started: logging=%s",
             logging.getLevelName(self.log_level))
 
@@ -542,7 +567,7 @@ class Plugin(indigo.PluginBase):
         if not userCancelled:
             self._set_logging_level(valuesDict.get(
                 "loggingLevel", logging.INFO))
-            self.logger.debug(
+            self.logger.log(DETAILED,
                 "Gate Controller logging changed: logging=%s",
                 logging.getLevelName(self.log_level))
 
@@ -563,7 +588,7 @@ class Plugin(indigo.PluginBase):
             for source_id in runtime.source_ids():
                 self.source_index.setdefault(source_id, set()).add(device.id)
             runtime.start()
-            self.logger.debug(
+            self.logger.log(DETAILED,
                 "Gate device started: device='%s' id=%s sources=%s",
                 device.name, device.id, sorted(runtime.source_ids()))
         except Exception as error:
@@ -576,7 +601,7 @@ class Plugin(indigo.PluginBase):
         if runtime is None:
             return
         runtime.stop()
-        self.logger.debug(
+        self.logger.log(DETAILED,
             "Gate device stopped: device='%s' id=%s",
             device.name, device.id)
         for source_id in list(self.source_index):
@@ -596,13 +621,13 @@ class Plugin(indigo.PluginBase):
 
     def triggerStartProcessing(self, trigger):
         self.triggers[trigger.id] = trigger
-        self.logger.debug(
+        self.logger.log(DETAILED,
             "Gate trigger enabled: id=%s event=%s",
             trigger.id, trigger.pluginTypeId)
 
     def triggerStopProcessing(self, trigger):
         self.triggers.pop(trigger.id, None)
-        self.logger.debug("Gate trigger disabled: id=%s", trigger.id)
+        self.logger.log(DETAILED, "Gate trigger disabled: id=%s", trigger.id)
 
     def emit(self, device, event_id):
         for trigger in list(self.triggers.values()):
@@ -610,7 +635,7 @@ class Plugin(indigo.PluginBase):
                 if (trigger.pluginTypeId == event_id and
                         int(trigger.pluginProps.get("gateDeviceId", 0)) == device.id):
                     indigo.trigger.execute(trigger.id)
-                    self.logger.debug(
+                    self.logger.log(DETAILED,
                         "Gate trigger executed: device='%s' event=%s "
                         "trigger_id=%s", device.name, event_id, trigger.id)
             except Exception as error:
@@ -622,7 +647,7 @@ class Plugin(indigo.PluginBase):
             group_id = int(device.pluginProps.get(property_name, 0) or 0)
             if group_id:
                 indigo.actionGroup.execute(group_id)
-                self.logger.debug(
+                self.logger.log(DETAILED,
                     "Gate action group executed: device='%s' property=%s "
                     "action_group_id=%s", device.name, property_name, group_id)
         except Exception as error:
@@ -641,7 +666,7 @@ class Plugin(indigo.PluginBase):
                     "gate control pulse duration must be a whole number of "
                     "seconds greater than zero")
             indigo.device.turnOn(control_id, duration=duration)
-            self.logger.debug(
+            self.logger.log(DETAILED,
                 "Gate control pulse started: device='%s' control_device_id=%s "
                 "duration=%ss", device.name, control_id, duration)
         except Exception as error:

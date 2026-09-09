@@ -17,7 +17,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(
             "com.berkinet.indigoplugin.gate-controller",
             info["CFBundleIdentifier"])
-        self.assertEqual("0.1.0-beta.1", info["PluginVersion"])
+        self.assertEqual("0.1.0-beta.2", info["PluginVersion"])
 
     def test_all_xml_files_parse(self):
         for name in ("Devices.xml", "Actions.xml", "Events.xml",
@@ -49,13 +49,14 @@ class ManifestTests(unittest.TestCase):
                         if state.attrib["id"] == "position")
         self.assertEqual("String", position.findtext("ValueType"))
 
-    def test_logging_menu_has_only_the_supported_levels(self):
+    def test_logging_menu_has_the_supported_levels(self):
         config = ET.parse(SERVER / "PluginConfig.xml").getroot()
         field = next(node for node in config.findall("Field")
                      if node.attrib.get("id") == "loggingLevel")
         self.assertEqual("20", field.attrib["defaultValue"])
         self.assertEqual(
-            [("10", "Debugging"), ("20", "Informational"),
+            [("5", "Detailed debugging"), ("10", "Debugging"),
+             ("20", "Informational"),
              ("30", "Warning"), ("40", "Error")],
             [(option.attrib["value"], option.text)
              for option in field.find("List").findall("Option")])
