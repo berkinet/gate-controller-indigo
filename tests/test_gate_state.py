@@ -63,6 +63,15 @@ class GateStateMachineTests(unittest.TestCase):
         self.pulse(slow, 1.0)
         self.assertEqual("opening", self.pulse(slow, 2.6).new)
 
+    def test_first_pulse_from_known_endpoint_has_immediate_direction(self):
+        opening = self.machine()
+        opening.synchronize(0, False, False, True)
+        self.assertEqual("opening", self.pulse(opening, 1.0).new)
+
+        closing = self.machine()
+        closing.synchronize(0, False, True, False)
+        self.assertEqual("closing", self.pulse(closing, 1.0).new)
+
     def test_idle_infers_end_position_from_last_direction(self):
         machine = self.machine()
         machine.synchronize(0, False, False, False)

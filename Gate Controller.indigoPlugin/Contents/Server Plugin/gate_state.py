@@ -121,6 +121,14 @@ class GateStateMachine:
         self.last_interval = interval
         self.idle_deadline = now + self.idle_timeout
         if interval is None or interval > self.idle_timeout:
+            if self.state == "closed":
+                self.last_motion = "opening"
+                return self._transition(
+                    "opening", "first lamp pulse after leaving closed limit")
+            if self.state == "open":
+                self.last_motion = "closing"
+                return self._transition(
+                    "closing", "first lamp pulse after leaving open limit")
             self.last_motion = "unknown"
             return self._transition("unknown", "first lamp pulse")
         if abs(interval - self.fast) <= self.band:

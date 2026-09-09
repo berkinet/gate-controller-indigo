@@ -115,12 +115,6 @@ class GateRuntime:
             self.device.updateStatesOnServer(updates)
 
     def start(self):
-        try:
-            self.device.updateStateImageOnServer(indigo.kStateImageSel.NoImage)
-        except Exception as error:
-            self.plugin.logger.warning(
-                "Unable to remove the state image for '%s': %s",
-                self.device.name, error)
         with self._lock:
             try:
                 values, open_active, closed_active = self._read_inputs()
@@ -282,6 +276,9 @@ class GateRuntime:
                 updates.append({"key": "lampInterval",
                                 "value": round(self.machine.last_interval, 3)})
             self.device.updateStatesOnServer(updates)
+            image = (indigo.kStateImageSel.Locked if state == "closed"
+                     else indigo.kStateImageSel.Unlocked)
+            self.device.updateStateImageOnServer(image)
             self._manage_open_timer(transition)
             if transition.old == transition.new:
                 self.plugin.logger.info(

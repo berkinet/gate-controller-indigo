@@ -26,8 +26,8 @@ gate.
   Stopped, Unknown, Paused, or Fault.
 - The native Garage Controller on/off state follows Indigo's garage-door
   convention: on means closed, while its displayed text remains the gate state.
-- No state icon is shown, avoiding the appearance of a latched power switch;
-  Indigo's Toggle command still sends the configured GiBiDi pulse.
+- A lock state image that is locked only when the gate is fully closed and
+  unlocked while open, moving, stopped, unknown, paused, or faulted.
 - Transition triggers for opening, closing, open, closed, stopped, unknown,
   paused, fault, and open-too-long.
 - Optional Action Group hooks for straightforward migration.

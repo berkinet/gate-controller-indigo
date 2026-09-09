@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.8 — 2026-09-09
+
+- Infer Opening immediately when the first lamp pulse follows departure from
+  the closed limit, and Closing when it follows departure from the open limit.
+  This avoids a transient Unknown state that HomeKitLink presents as a sticky
+  obstruction during otherwise normal travel.
+- Display Indigo's Locked image only while fully closed and Unlocked while
+  open, opening, closing, stopped, unknown, paused, or faulted.
+
 ## 0.1.0-alpha.7 — 2026-09-09
 
 - Pass the momentary pulse duration to Indigo as the required unsigned whole

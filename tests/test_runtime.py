@@ -103,7 +103,7 @@ fake_indigo.devices = FakeDevices()
 fake_indigo.actionGroups = []
 fake_indigo.Dict = dict
 fake_indigo.kDeviceAction = types.SimpleNamespace(TurnOn=1, TurnOff=2, Toggle=3)
-fake_indigo.kStateImageSel = types.SimpleNamespace(NoImage=0)
+fake_indigo.kStateImageSel = types.SimpleNamespace(Locked=1, Unlocked=2)
 fake_indigo.trigger = types.SimpleNamespace(execute=lambda _trigger_id: None)
 fake_indigo.actionGroup = types.SimpleNamespace(execute=lambda _group_id: None)
 fake_indigo.device = types.SimpleNamespace(turnOn=lambda *args, **kwargs: None)
@@ -145,7 +145,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(1, gate.states["doorState"])
         self.assertTrue(gate.states["onOffState"])
         self.assertEqual("Closed", gate.ui_values["onOffState"])
-        self.assertEqual(fake_indigo.kStateImageSel.NoImage, gate.state_image)
+        self.assertEqual(fake_indigo.kStateImageSel.Locked, gate.state_image)
         self.assertTrue(gate.states["inputsAvailable"])
         self.assertEqual([], owner.events)
         self.assertEqual([], owner.groups)
@@ -160,6 +160,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual("unknown", gate.states["position"])
         self.assertEqual("Unknown", gate.ui_values["position"])
         self.assertEqual(4, gate.states["doorState"])
+        self.assertEqual(fake_indigo.kStateImageSel.Unlocked, gate.state_image)
 
     def test_second_leaf_must_also_reach_limit(self):
         props = base_props()

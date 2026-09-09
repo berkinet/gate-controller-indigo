@@ -30,9 +30,13 @@ current Variable Mirror facade:
 HomeKitLink translates an open target into Indigo **Turn Off** and a closed
 target into Indigo **Turn On**. The Gate Controller relay interface accepts
 Turn On, Turn Off, and Toggle as the same physical momentary command, matching
-the single-button GiBiDi controller. Its `onOffState` remains a momentary
-command surface and is reset to Off; gate position is carried only by
-`doorState` and `position`.
+the single-button GiBiDi controller. Its `onOffState` follows Indigo's garage
+door convention—on when fully closed and off otherwise—while `doorState` and
+`position` provide detailed position.
+
+When the gate leaves a known endpoint, Gate Controller reports Opening or
+Closing on the first lamp pulse. This avoids publishing a transient Unknown
+state that HomeKitLink would interpret as an obstruction.
 
 ## Direct publication
 
