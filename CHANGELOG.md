@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.5 — 2026-09-09
+
+- Make the native Garage Controller state follow Indigo's established
+  convention: on when closed and off in every other gate state.
+- Give that native state the textual gate-state UI value as a fallback for
+  Indigo views that render it instead of the configured `position` state.
+- Refresh device-state and display-state metadata when communication starts.
+- Preserve the observed gate state when sending a momentary control pulse.
+
 ## 0.1.0-alpha.4 — 2026-09-09
 
 - Make the Indigo device display state an explicit textual gate state rather

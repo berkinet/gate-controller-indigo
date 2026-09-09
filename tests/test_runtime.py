@@ -35,6 +35,7 @@ class FakeDevice:
         self.enabled = enabled
         self.error = None
         self.ui_values = {}
+        self.display_metadata_refreshes = 0
 
     def updateStateOnServer(self, key, value=None, **kwargs):
         self.states[key] = value
@@ -49,6 +50,9 @@ class FakeDevice:
 
     def setErrorStateOnServer(self, value):
         self.error = value
+
+    def stateListOrDisplayStateIdChanged(self):
+        self.display_metadata_refreshes += 1
 
 
 class FakeDevices(dict):
@@ -130,7 +134,8 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual("closed", gate.states["position"])
         self.assertEqual("Closed", gate.ui_values["position"])
         self.assertEqual(1, gate.states["doorState"])
-        self.assertFalse(gate.states["onOffState"])
+        self.assertTrue(gate.states["onOffState"])
+        self.assertEqual("Closed", gate.ui_values["onOffState"])
         self.assertTrue(gate.states["inputsAvailable"])
         self.assertEqual([], owner.events)
         self.assertEqual([], owner.groups)
@@ -197,10 +202,18 @@ class RuntimeTests(unittest.TestCase):
             turnOn=lambda device_id, duration: calls.append((device_id, duration)))
         plugin = gate_plugin.Plugin("id", "name", "version", {})
         gate = FakeDevice(100, "Main Gate", props={
-            "controlDeviceId": "44", "controlPulseSeconds": "0.75"})
+            "controlDeviceId": "44", "controlPulseSeconds": "0.75"},
+            states={"onOffState": True, "position": "closed"})
         plugin.pulseGate(None, gate)
         self.assertEqual([(44, 0.75)], calls)
-        self.assertFalse(gate.states["onOffState"])
+        self.assertTrue(gate.states["onOffState"])
+        self.assertEqual("closed", gate.states["position"])
+
+    def test_device_start_refreshes_indigo_display_metadata(self):
+        plugin = gate_plugin.Plugin("id", "name", "version", {})
+        gate = FakeDevice(100, "Main Gate", props=base_props())
+        plugin.deviceStartComm(gate)
+        self.assertEqual(1, gate.display_metadata_refreshes)
 
     def test_homekit_door_state_contract_matches_homekitlink(self):
         self.assertEqual({

@@ -24,6 +24,8 @@ gate.
   open 0, closed 1, opening 2, closing 3, and stopped/unknown/fault 4.
 - A textual Indigo display state showing Open, Opening, Closing, Closed,
   Stopped, Unknown, Paused, or Fault.
+- The native Garage Controller on/off state follows Indigo's garage-door
+  convention: on means closed, while its displayed text remains the gate state.
 - Transition triggers for opening, closing, open, closed, stopped, unknown,
   paused, fault, and open-too-long.
 - Optional Action Group hooks for straightforward migration.

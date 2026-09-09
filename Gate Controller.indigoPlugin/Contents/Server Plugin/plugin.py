@@ -122,7 +122,6 @@ class GateRuntime:
                     time.monotonic(), values["lamp"], open_active, closed_active)
                 self._publish_inputs(values)
                 self._inputs_recovered()
-                self.device.updateStateOnServer("onOffState", value=False)
             except Exception as error:
                 self._input_error(error)
                 return
@@ -265,6 +264,8 @@ class GateRuntime:
             updates = [
                 {"key": "position", "value": state,
                  "uiValue": state.capitalize()},
+                {"key": "onOffState", "value": state == "closed",
+                 "uiValue": state.capitalize()},
                 {"key": "doorState", "value": DOOR_STATE[state]},
                 {"key": "motionActive", "value": state in ("opening", "closing")},
                 {"key": "fault", "value": state == "fault"},
@@ -333,6 +334,7 @@ class Plugin(indigo.PluginBase):
     def deviceStartComm(self, device):
         self.deviceStopComm(device)
         try:
+            device.stateListOrDisplayStateIdChanged()
             runtime = GateRuntime(self, device)
             self.runtimes[device.id] = runtime
             for source_id in runtime.source_ids():
@@ -390,7 +392,6 @@ class Plugin(indigo.PluginBase):
                 raise RuntimeError("no gate control device is configured")
             seconds = float(device.pluginProps.get("controlPulseSeconds", 1.0))
             indigo.device.turnOn(control_id, duration=seconds)
-            device.updateStateOnServer("onOffState", value=False)
         except Exception as error:
             self.logger.error("Unable to start gate control pulse for '%s': %s",
                               device.name, error)
