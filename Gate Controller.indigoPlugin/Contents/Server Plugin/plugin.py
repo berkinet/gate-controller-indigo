@@ -6,6 +6,7 @@ import datetime
 import logging
 import threading
 import time
+from typing import Any, Mapping, Optional, Tuple
 
 import indigo
 
@@ -19,6 +20,8 @@ DOOR_STATE = {
 
 
 class GateRuntime:
+    """Coordinate one Indigo gate device with its motion state machine."""
+
     REQUIRED_INPUTS = ("lamp", "open", "closed")
     OPTIONAL_INPUTS = ("open2", "closed2", "safety1", "safety2",
                        "cycle", "lock1", "lock2")
@@ -45,7 +48,8 @@ class GateRuntime:
         self._indicator_error_message = None
         self._indicator_error_logged_at = 0.0
 
-    def source_ids(self):
+    def source_ids(self) -> set:
+        """Return the Indigo device IDs that can trigger reevaluation."""
         result = set()
         for prefix in self.INPUTS:
             try:
@@ -119,6 +123,7 @@ class GateRuntime:
             self.device.updateStatesOnServer(updates)
 
     def start(self):
+        """Synchronize inputs and begin monitoring without emitting events."""
         with self._lock:
             try:
                 values, open_active, closed_active = self._read_inputs()
@@ -139,6 +144,7 @@ class GateRuntime:
         self._publish(transition, notify=False)
 
     def stop(self):
+        """Cancel timers and prevent further evaluation for this runtime."""
         with self._lock:
             self._stopped = True
             self._generation += 1
@@ -348,6 +354,7 @@ class GateRuntime:
             self._indicator_error(error)
 
     def evaluate(self, reason="input changed"):
+        """Read current inputs and publish any resulting gate transition."""
         with self._lock:
             if self._stopped:
                 return
@@ -476,6 +483,7 @@ class GateRuntime:
                 self.device.name, error)
 
     def force(self, state, pause_seconds=0.0):
+        """Force a diagnostic state, subject to authoritative limit inputs."""
         with self._lock:
             now = time.monotonic()
             self.plugin.logger.debug(
@@ -498,6 +506,8 @@ class GateRuntime:
 
 
 class Plugin(indigo.PluginBase):
+    """Indigo lifecycle, configuration, action, and event adapter."""
+
     def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
         super().__init__(pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
         self.runtimes = {}
@@ -522,6 +532,7 @@ class Plugin(indigo.PluginBase):
                 handler.setLevel(level)
 
     def startup(self):
+        """Subscribe to Indigo device changes when the plugin starts."""
         indigo.devices.subscribeToChanges()
         self.logger.debug(
             "Gate Controller started: logging=%s",
@@ -536,12 +547,14 @@ class Plugin(indigo.PluginBase):
                 logging.getLevelName(self.log_level))
 
     def shutdown(self):
+        """Stop every active gate runtime and discard source indexes."""
         for runtime in list(self.runtimes.values()):
             runtime.stop()
         self.runtimes.clear()
         self.source_index.clear()
 
     def deviceStartComm(self, device):
+        """Create and start the runtime for an enabled Gate Controller."""
         self.deviceStopComm(device)
         try:
             device.stateListOrDisplayStateIdChanged()
@@ -558,6 +571,7 @@ class Plugin(indigo.PluginBase):
             self.logger.error("Unable to start gate '%s': %s", device.name, error)
 
     def deviceStopComm(self, device):
+        """Stop a Gate Controller runtime and remove its input indexes."""
         runtime = self.runtimes.pop(device.id, None)
         if runtime is None:
             return
@@ -571,6 +585,7 @@ class Plugin(indigo.PluginBase):
                 del self.source_index[source_id]
 
     def deviceUpdated(self, original, updated):
+        """Apply Indigo's normal reconfiguration lifecycle, then inputs."""
         # Preserve Indigo's standard plugin-device lifecycle. Its base handler
         # calls deviceStopComm/deviceStartComm when plugin properties change.
         super().deviceUpdated(original, updated)
@@ -653,6 +668,7 @@ class Plugin(indigo.PluginBase):
                               device.name, error)
 
     def actionControlDevice(self, action, device):
+        """Translate any native relay command into one momentary pulse."""
         if action.deviceAction in (indigo.kDeviceAction.TurnOn,
                                    indigo.kDeviceAction.TurnOff,
                                    indigo.kDeviceAction.Toggle):
@@ -683,6 +699,7 @@ class Plugin(indigo.PluginBase):
         return result
 
     def getStateList(self, filter="", valuesDict=None, typeId="", targetId=0):
+        """Return states exposed by the selected source device."""
         valuesDict = valuesDict or {}
         try:
             device_id = int(valuesDict.get(str(filter) + "DeviceId", 0))
@@ -691,28 +708,57 @@ class Plugin(indigo.PluginBase):
         except Exception:
             return []
 
+    @staticmethod
+    def _parse_device_id(value: Any) -> int:
+        """Normalize an Indigo form value to a device ID, or zero."""
+        return int(value or 0)
+
+    def _lookup_source(
+            self, values: Mapping[str, Any], prefix: str
+    ) -> Tuple[Optional[Any], int, str, Optional[str]]:
+        """Resolve a configured source and classify selection errors.
+
+        The final tuple item is one of ``invalid``, ``missing``,
+        ``unavailable``, or ``state``; ``None`` means the selection is valid.
+        This helper is deliberately configuration-only. Runtime input failures
+        retain their more detailed reporting in :meth:`GateRuntime._input`.
+        """
+        try:
+            source_id = self._parse_device_id(
+                values.get(prefix + "DeviceId", 0))
+        except (TypeError, ValueError):
+            return None, 0, "", "invalid"
+        state_id = str(values.get(prefix + "StateId", "") or "")
+        if not source_id:
+            return None, 0, state_id, "missing"
+        try:
+            source = indigo.devices[source_id]
+        except Exception:
+            return None, source_id, state_id, "unavailable"
+        if not state_id or state_id not in source.states:
+            return source, source_id, state_id, "state"
+        return source, source_id, state_id, None
+
     def sourceDeviceChanged(self, valuesDict, typeId, deviceId):
+        """Clear stale state selections when a source device changes."""
         for prefix in GateRuntime.INPUTS:
-            try:
-                source_id = int(valuesDict.get(prefix + "DeviceId", 0) or 0)
-                state_id = str(valuesDict.get(prefix + "StateId", "") or "")
-                if not source_id or state_id not in indigo.devices[source_id].states:
-                    valuesDict[prefix + "StateId"] = ""
-            except Exception:
+            _source, _source_id, _state_id, error = self._lookup_source(
+                valuesDict, prefix)
+            if error is not None:
                 valuesDict[prefix + "StateId"] = ""
         return valuesDict
 
     def validateDeviceConfigUi(self, valuesDict, typeId, deviceId):
+        """Validate physical mappings and timing relationships as a unit."""
         errors = indigo.Dict()
         for prefix, label in (("lamp", "Flashing lamp"),
                               ("open", "Open detector"),
                               ("closed", "Closed detector")):
-            try:
-                source = indigo.devices[int(valuesDict.get(prefix + "DeviceId", 0))]
-                state_id = str(valuesDict.get(prefix + "StateId", ""))
-                if not state_id or state_id not in source.states:
-                    errors[prefix + "StateId"] = "%s state is required" % label
-            except Exception:
+            _source, _source_id, _state_id, error = self._lookup_source(
+                valuesDict, prefix)
+            if error == "state":
+                errors[prefix + "StateId"] = "%s state is required" % label
+            elif error is not None:
                 errors[prefix + "DeviceId"] = "%s device is required" % label
         for prefix, label in (("open2", "Second open detector"),
                               ("closed2", "Second closed detector"),
@@ -721,19 +767,14 @@ class Plugin(indigo.PluginBase):
                               ("cycle", "Active-cycle input"),
                               ("lock1", "Lock input 1"),
                               ("lock2", "Lock input 2")):
-            try:
-                source_id = int(valuesDict.get(prefix + "DeviceId", 0) or 0)
-            except (TypeError, ValueError):
-                source_id = 0
+            _source, _source_id, _state_id, error = self._lookup_source(
+                valuesDict, prefix)
+            if error == "invalid":
                 errors[prefix + "DeviceId"] = "%s device is invalid" % label
-            state_id = str(valuesDict.get(prefix + "StateId", "") or "")
-            if source_id:
-                try:
-                    source = indigo.devices[source_id]
-                    if not state_id or state_id not in source.states:
-                        errors[prefix + "StateId"] = "%s state is required" % label
-                except Exception:
-                    errors[prefix + "DeviceId"] = "%s device is unavailable" % label
+            elif error == "unavailable":
+                errors[prefix + "DeviceId"] = "%s device is unavailable" % label
+            elif error == "state":
+                errors[prefix + "StateId"] = "%s state is required" % label
         pairs = [(valuesDict.get(p + "DeviceId"), valuesDict.get(p + "StateId"))
                  for p in ("open", "closed")]
         if pairs[0] == pairs[1]:

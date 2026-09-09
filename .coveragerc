@@ -1,0 +1,14 @@
+[run]
+branch = True
+source =
+    Gate Controller.indigoPlugin/Contents/Server Plugin
+
+[report]
+show_missing = True
+skip_covered = True
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml

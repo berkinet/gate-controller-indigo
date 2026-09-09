@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Add continuous integration for the unit suite and branch-coverage reporting.
+- Document the main Indigo lifecycle and runtime boundaries, with focused type
+  hints for configuration helpers.
+- Consolidate source-device and state lookup used by configuration validation.
+- Add contributor guidance for testing, architecture, manifests, releases, and
+  security-sensitive data.
+
 ## 0.1.0-beta.1 — 2026-09-09
 
 - Add an optional Gate Status Indicator output that follows the live

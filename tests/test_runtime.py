@@ -435,5 +435,40 @@ class RuntimeTests(unittest.TestCase):
         self.assertFalse(valid)
         self.assertIn("gate input or control", errors["indicatorDeviceId"])
 
+    def test_source_lookup_classifies_form_selection_errors(self):
+        plugin = gate_plugin.Plugin("id", "name", "version", {})
+
+        cases = (
+            ({"lampDeviceId": "bad", "lampStateId": "onOffState"},
+             "invalid"),
+            ({"lampDeviceId": "0", "lampStateId": "onOffState"},
+             "missing"),
+            ({"lampDeviceId": "99", "lampStateId": "onOffState"},
+             "unavailable"),
+            ({"lampDeviceId": "1", "lampStateId": "missingState"},
+             "state"),
+            ({"lampDeviceId": "1", "lampStateId": "onOffState"}, None),
+        )
+        for values, expected in cases:
+            with self.subTest(expected=expected):
+                _source, _source_id, _state_id, error = (
+                    plugin._lookup_source(values, "lamp"))
+                self.assertEqual(expected, error)
+
+    def test_source_change_clears_only_stale_state_selections(self):
+        plugin = gate_plugin.Plugin("id", "name", "version", {})
+        values = base_props()
+        values.update({
+            "open2DeviceId": "99", "open2StateId": "onOffState",
+            "safety1DeviceId": "0", "safety1StateId": "oldState",
+        })
+
+        updated = plugin.sourceDeviceChanged(
+            values, "gateController", 100)
+
+        self.assertEqual("onOffState", updated["lampStateId"])
+        self.assertEqual("", updated["open2StateId"])
+        self.assertEqual("", updated["safety1StateId"])
+
 if __name__ == "__main__":
     unittest.main()
