@@ -17,7 +17,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(
             "com.berkinet.indigoplugin.gate-controller",
             info["CFBundleIdentifier"])
-        self.assertEqual("0.1.0-beta.2", info["PluginVersion"])
+        self.assertEqual("0.1.0-beta.3", info["PluginVersion"])
 
     def test_all_xml_files_parse(self):
         for name in ("Devices.xml", "Actions.xml", "Events.xml",
@@ -70,6 +70,21 @@ class ManifestTests(unittest.TestCase):
             "getIndicatorDeviceList",
             fields["indicatorDeviceId"].find("List").attrib["method"])
         self.assertEqual("false", fields["indicatorInverted"].attrib["defaultValue"])
+
+    def test_second_leaf_delay_and_physical_limits_are_mutually_visible(self):
+        device = ET.parse(SERVER / "Devices.xml").getroot().find("Device")
+        fields = {field.attrib.get("id"): field
+                  for field in device.find("ConfigUI").findall("Field")}
+        self.assertEqual("true", fields["delayAfterFirstLeaf"].attrib["defaultValue"])
+        self.assertEqual("true", fields["secondLeafDelaySeconds"].attrib[
+            "visibleBindingValue"])
+        for field_id in ("open2DeviceId", "open2StateId", "open2ActiveWhen",
+                         "closed2DeviceId", "closed2StateId",
+                         "closed2ActiveWhen"):
+            self.assertEqual("delayAfterFirstLeaf",
+                             fields[field_id].attrib["visibleBindingId"])
+            self.assertEqual("false",
+                             fields[field_id].attrib["visibleBindingValue"])
 
 
 if __name__ == "__main__":

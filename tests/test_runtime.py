@@ -189,7 +189,8 @@ class RuntimeTests(unittest.TestCase):
 
     def test_second_leaf_must_also_reach_limit(self):
         props = base_props()
-        props.update({"open2DeviceId": "4", "open2StateId": "onOffState",
+        props.update({"delayAfterFirstLeaf": "false",
+                      "open2DeviceId": "4", "open2StateId": "onOffState",
                       "open2ActiveWhen": "true"})
         fake_indigo.devices[2].states["onOffState"] = True
         fake_indigo.devices[3].states["onOffState"] = False
@@ -203,6 +204,53 @@ class RuntimeTests(unittest.TestCase):
         fake_indigo.devices[4].states["onOffState"] = True
         _values, open_active, _closed_active = runtime._read_inputs()
         self.assertTrue(open_active)
+
+    def test_first_leaf_endpoint_is_published_after_configured_delay(self):
+        owner = RuntimePlugin()
+        props = base_props()
+        props.update({"delayAfterFirstLeaf": "true",
+                      "secondLeafDelaySeconds": "60"})
+        gate = FakeDevice(100, "Main Gate", props=props)
+        runtime = gate_plugin.GateRuntime(owner, gate)
+        runtime.start()
+
+        fake_indigo.devices[3].states["onOffState"] = False
+        runtime.evaluate("closed limit released")
+        self.assertEqual("opening", gate.states["position"])
+        fake_indigo.devices[1].states["onOffState"] = True
+        runtime.evaluate("lamp rising")
+        self.assertEqual("opening", gate.states["position"])
+        fake_indigo.devices[2].states["onOffState"] = True
+        runtime.evaluate("open limit reached")
+
+        self.assertEqual("opening", gate.states["position"])
+        self.assertEqual("open", runtime._pending_endpoint)
+        self.assertNotIn((100, "open"), owner.events)
+        runtime._endpoint_timer.cancel()
+        runtime._endpoint_delay_fired(runtime._generation)
+        self.assertEqual("open", gate.states["position"])
+        self.assertIn((100, "open"), owner.events)
+
+    def test_first_leaf_delay_is_canceled_when_limit_releases(self):
+        owner = RuntimePlugin()
+        props = base_props()
+        props.update({"delayAfterFirstLeaf": "true",
+                      "secondLeafDelaySeconds": "60"})
+        gate = FakeDevice(100, "Main Gate", props=props)
+        runtime = gate_plugin.GateRuntime(owner, gate)
+        runtime.start()
+        fake_indigo.devices[3].states["onOffState"] = False
+        runtime.evaluate()
+        fake_indigo.devices[1].states["onOffState"] = True
+        runtime.evaluate()
+        fake_indigo.devices[2].states["onOffState"] = True
+        runtime.evaluate()
+        self.assertEqual("open", runtime._pending_endpoint)
+
+        fake_indigo.devices[2].states["onOffState"] = False
+        runtime.evaluate("open limit released")
+        self.assertIsNone(runtime._pending_endpoint)
+        self.assertEqual("closing", gate.states["position"])
 
     def test_identical_input_failure_is_suppressed_until_recovery(self):
         owner = RuntimePlugin()

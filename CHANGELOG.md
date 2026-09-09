@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.0-beta.3 — 2026-09-09
+
+- Add a default-on second-leaf delay mode that keeps the gate Opening or
+  Closing for a configurable interval after the first-leaf endpoint. The delay
+  is canceled if that limit releases or motion changes.
+- Make delayed estimation and physical second-leaf limits mutually exclusive
+  in the device configuration, revealing only the selected strategy.
+
 ## 0.1.0-beta.2 — 2026-09-09
 
 - Add a Detailed debugging logging level containing the former Debugging

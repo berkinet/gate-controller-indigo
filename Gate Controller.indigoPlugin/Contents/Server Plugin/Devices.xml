@@ -32,13 +32,16 @@
 
             <Field id="secondarySeparator" type="separator"/>
             <Field id="secondaryTitle" type="label" alignText="center"><Label>Optional second-leaf limits</Label></Field>
-            <Field id="secondaryHelp" type="label" fontSize="small" fontColor="darkgray"><Label>When configured, both first- and second-leaf limits must be active before the whole gate is reported fully open or closed.</Label></Field>
-            <Field id="open2DeviceId" type="menu" defaultValue="0"><Label>Second fully-open device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
-            <Field id="open2StateId" type="menu"><Label>Second fully-open state:</Label><List class="self" method="getStateList" filter="open2" dynamicReload="true"/></Field>
-            <Field id="open2ActiveWhen" type="menu" defaultValue="true"><Label>Second open detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
-            <Field id="closed2DeviceId" type="menu" defaultValue="0"><Label>Second fully-closed device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
-            <Field id="closed2StateId" type="menu"><Label>Second fully-closed state:</Label><List class="self" method="getStateList" filter="closed2" dynamicReload="true"/></Field>
-            <Field id="closed2ActiveWhen" type="menu" defaultValue="true"><Label>Second closed detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+            <Field id="delayAfterFirstLeaf" type="checkbox" defaultValue="true"><Label>Delay after first leaf</Label></Field>
+            <Field id="secondLeafDelaySeconds" type="textfield" defaultValue="10" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="true"><Label>Second-leaf delay (seconds):</Label></Field>
+            <Field id="delayHelp" type="label" fontSize="small" fontColor="darkgray" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="true"><Label>After the first-leaf open or closed limit is reached, keep reporting motion for this delay before reporting the whole gate Open or Closed.</Label></Field>
+            <Field id="secondaryHelp" type="label" fontSize="small" fontColor="darkgray" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="false"><Label>Both first- and second-leaf limits must be active before the whole gate is reported fully open or closed.</Label></Field>
+            <Field id="open2DeviceId" type="menu" defaultValue="0" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="false"><Label>Second fully-open device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="open2StateId" type="menu" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="false"><Label>Second fully-open state:</Label><List class="self" method="getStateList" filter="open2" dynamicReload="true"/></Field>
+            <Field id="open2ActiveWhen" type="menu" defaultValue="true" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="false"><Label>Second open detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
+            <Field id="closed2DeviceId" type="menu" defaultValue="0" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="false"><Label>Second fully-closed device:</Label><List class="self" method="getSourceDeviceList" filter="optional"/><CallbackMethod>sourceDeviceChanged</CallbackMethod></Field>
+            <Field id="closed2StateId" type="menu" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="false"><Label>Second fully-closed state:</Label><List class="self" method="getStateList" filter="closed2" dynamicReload="true"/></Field>
+            <Field id="closed2ActiveWhen" type="menu" defaultValue="true" visibleBindingId="delayAfterFirstLeaf" visibleBindingValue="false"><Label>Second closed detector is active when:</Label><List><Option value="true">True / On / non-zero</Option><Option value="false">False / Off / zero</Option></List></Field>
 
             <Field id="diagnosticSeparator" type="separator"/>
             <Field id="diagnosticTitle" type="label" alignText="center"><Label>Optional diagnostic inputs</Label></Field>

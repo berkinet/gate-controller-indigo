@@ -66,11 +66,13 @@ class GateStateMachineTests(unittest.TestCase):
     def test_first_pulse_from_known_endpoint_has_immediate_direction(self):
         opening = self.machine()
         opening.synchronize(0, False, False, True)
-        self.assertEqual("opening", self.pulse(opening, 1.0).new)
+        transition = opening.observe(0.9, False, False, False)
+        self.assertEqual("opening", transition.new)
 
         closing = self.machine()
         closing.synchronize(0, False, True, False)
-        self.assertEqual("closing", self.pulse(closing, 1.0).new)
+        transition = closing.observe(0.9, False, False, False)
+        self.assertEqual("closing", transition.new)
 
     def test_idle_infers_end_position_from_last_direction(self):
         machine = self.machine()
@@ -104,6 +106,19 @@ class GateStateMachineTests(unittest.TestCase):
         self.assertIsNone(self.pulse(machine, 2.0))
         transition = machine.observe(3.0, False, False, True)
         self.assertEqual("closed", transition.new)
+
+    def test_endpoint_can_be_deferred_and_completed(self):
+        machine = self.machine()
+        machine.synchronize(0, False, False, True)
+        transition = machine.observe(0.9, False, False, False)
+        self.assertEqual("opening", transition.new)
+        transition = machine.observe(2.0, False, True, False)
+        self.assertEqual("open", transition.new)
+        self.assertEqual("opening", machine.defer_endpoint(transition))
+        self.assertEqual("opening", machine.state)
+        transition = machine.complete_endpoint("open")
+        self.assertEqual("open", transition.new)
+        self.assertIn("second-leaf delay", transition.reason)
 
 
 if __name__ == "__main__":

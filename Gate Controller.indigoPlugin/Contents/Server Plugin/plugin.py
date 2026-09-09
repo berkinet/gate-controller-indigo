@@ -44,6 +44,8 @@ class GateRuntime:
         self._generation = 0
         self._idle_timer = None
         self._open_timer = None
+        self._endpoint_timer = None
+        self._pending_endpoint = None
         self._stopped = False
         self._input_error_message = None
         self._input_error_logged_at = 0.0
@@ -55,6 +57,9 @@ class GateRuntime:
         """Return the Indigo device IDs that can trigger reevaluation."""
         result = set()
         for prefix in self.INPUTS:
+            if (prefix in ("open2", "closed2") and
+                    self._delay_after_first_leaf()):
+                continue
             try:
                 result.add(int(self.device.pluginProps.get(prefix + "DeviceId", 0)))
             except (TypeError, ValueError):
@@ -85,8 +90,14 @@ class GateRuntime:
             source.states[state_id], props.get(prefix + "ActiveWhen", "true"))
 
     def _read_inputs(self):
-        values = {prefix: self._input(prefix, prefix in self.REQUIRED_INPUTS)
-                  for prefix in self.INPUTS}
+        values = {}
+        delay_mode = self._delay_after_first_leaf()
+        for prefix in self.INPUTS:
+            if delay_mode and prefix in ("open2", "closed2"):
+                values[prefix] = None
+            else:
+                values[prefix] = self._input(
+                    prefix, prefix in self.REQUIRED_INPUTS)
 
         open_active = values["open"]
         closed_active = values["closed"]
@@ -102,6 +113,17 @@ class GateRuntime:
         if primary_conflict or secondary_conflict:
             open_active = closed_active = True
         return values, open_active, closed_active
+
+    def _delay_after_first_leaf(self):
+        return input_active(
+            self.device.pluginProps.get("delayAfterFirstLeaf", True))
+
+    def _second_leaf_delay(self):
+        try:
+            return max(0.0, float(self.device.pluginProps.get(
+                "secondLeafDelaySeconds", 0) or 0))
+        except (TypeError, ValueError):
+            return 0.0
 
     def _publish_inputs(self, values, log_changes=True):
         keys = {
@@ -160,6 +182,7 @@ class GateRuntime:
                 self._inputs_recovered()
             except Exception as error:
                 self._input_error(error)
+                self._cancel_endpoint_delay("inputs unavailable")
                 return
         self._publish(transition, notify=False)
 
@@ -168,8 +191,10 @@ class GateRuntime:
         with self._lock:
             self._stopped = True
             self._generation += 1
-            timers = (self._idle_timer, self._open_timer)
-            self._idle_timer = self._open_timer = None
+            timers = (self._idle_timer, self._open_timer,
+                      self._endpoint_timer)
+            self._idle_timer = self._open_timer = self._endpoint_timer = None
+            self._pending_endpoint = None
         for timer in timers:
             if timer is not None:
                 timer.cancel()
@@ -209,6 +234,63 @@ class GateRuntime:
             "Gate idle timer %s: device='%s' delay=%.3fs",
             action, self.device.name, delay)
 
+    def _cancel_endpoint_delay(self, reason):
+        if self._pending_endpoint is None:
+            return
+        endpoint = self._pending_endpoint
+        if self._endpoint_timer is not None:
+            self._endpoint_timer.cancel()
+        self._endpoint_timer = None
+        self._pending_endpoint = None
+        self.plugin.logger.log(
+            DETAILED,
+            "Gate second-leaf delay canceled: device='%s' endpoint=%s "
+            "reason='%s'", self.device.name, endpoint, reason)
+
+    def _defer_endpoint(self, transition, values):
+        if (transition is None or not self._delay_after_first_leaf() or
+                self._second_leaf_delay() <= 0 or
+                transition.new not in ("open", "closed")):
+            return transition
+        limit_name = "open" if transition.new == "open" else "closed"
+        if not values[limit_name]:
+            return transition
+        endpoint = transition.new
+        self.machine.defer_endpoint(transition)
+        if self._pending_endpoint != endpoint:
+            self._cancel_endpoint_delay("different endpoint observed")
+            self._pending_endpoint = endpoint
+            delay = self._second_leaf_delay()
+            self._replace_timer(
+                "_endpoint_timer", delay, self._endpoint_delay_fired)
+            self.plugin.logger.debug(
+                "First leaf %s; estimating second leaf for %.1f seconds",
+                endpoint, delay)
+        return None
+
+    def _endpoint_delay_fired(self, generation):
+        with self._lock:
+            if (self._stopped or generation != self._generation or
+                    self._pending_endpoint is None):
+                return
+            endpoint = self._pending_endpoint
+            self._endpoint_timer = None
+            try:
+                values, _open_active, _closed_active = self._read_inputs()
+                self._publish_inputs(values)
+                self._inputs_recovered()
+            except Exception as error:
+                self._input_error(error)
+                self._cancel_endpoint_delay("inputs unavailable")
+                return
+            limit_name = "open" if endpoint == "open" else "closed"
+            if not values[limit_name]:
+                self._cancel_endpoint_delay("first-leaf limit released")
+                return
+            self._pending_endpoint = None
+            transition = self.machine.complete_endpoint(endpoint)
+        self._publish(transition)
+
     def _idle_fired(self, generation):
         with self._lock:
             if self._stopped or generation != self._generation:
@@ -223,6 +305,7 @@ class GateRuntime:
                 self._inputs_recovered()
                 transition = self.machine.idle(
                     time.monotonic(), open_active, closed_active)
+                transition = self._defer_endpoint(transition, values)
             except Exception as error:
                 self._input_error(error)
                 return
@@ -381,10 +464,25 @@ class GateRuntime:
             try:
                 values, open_active, closed_active = self._read_inputs()
                 now = time.monotonic()
+                if self._pending_endpoint is not None:
+                    expected = ("open" if self._pending_endpoint == "open"
+                                else "closed")
+                    if not values[expected]:
+                        # Restore the estimated endpoint internally so the
+                        # limit release is recognized as immediate reversal.
+                        self.machine.restore_deferred_endpoint(
+                            self._pending_endpoint)
+                        self._cancel_endpoint_delay(
+                            "first-leaf limit released")
                 previous_lamp = self.machine.last_lamp_active
                 previous_edge = self.machine.last_edge
                 transition = self.machine.observe(
                     now, values["lamp"], open_active, closed_active)
+                if (transition is not None and
+                        transition.new not in ("open", "closed")):
+                    self._cancel_endpoint_delay(
+                        "gate changed to %s" % transition.new)
+                transition = self._defer_endpoint(transition, values)
                 self._debug_observation(
                     reason, now, values, open_active, closed_active,
                     previous_lamp, previous_edge, transition)
@@ -509,6 +607,7 @@ class GateRuntime:
         """Force a diagnostic state, subject to authoritative limit inputs."""
         with self._lock:
             now = time.monotonic()
+            self._cancel_endpoint_delay("state forced")
             self.plugin.logger.log(DETAILED,
                 "Gate state force requested: device='%s' state=%s pause=%.3fs",
                 self.device.name, state, pause_seconds)
@@ -785,13 +884,17 @@ class Plugin(indigo.PluginBase):
                 errors[prefix + "StateId"] = "%s state is required" % label
             elif error is not None:
                 errors[prefix + "DeviceId"] = "%s device is required" % label
-        for prefix, label in (("open2", "Second open detector"),
-                              ("closed2", "Second closed detector"),
-                              ("safety1", "Safety input 1"),
+        optional_inputs = [("safety1", "Safety input 1"),
                               ("safety2", "Safety input 2"),
                               ("cycle", "Active-cycle input"),
                               ("lock1", "Lock input 1"),
-                              ("lock2", "Lock input 2")):
+                              ("lock2", "Lock input 2")]
+        delay_mode = input_active(valuesDict.get("delayAfterFirstLeaf", True))
+        if not delay_mode:
+            optional_inputs[0:0] = [
+                ("open2", "Second open detector"),
+                ("closed2", "Second closed detector")]
+        for prefix, label in optional_inputs:
             _source, _source_id, _state_id, error = self._lookup_source(
                 valuesDict, prefix)
             if error == "invalid":
@@ -856,6 +959,13 @@ class Plugin(indigo.PluginBase):
                     raise ValueError()
             except (TypeError, ValueError):
                 errors[key] = "Enter a number of at least %s" % minimum
+        if delay_mode:
+            try:
+                if float(valuesDict.get("secondLeafDelaySeconds", 0)) < 0:
+                    raise ValueError()
+            except (TypeError, ValueError):
+                errors["secondLeafDelaySeconds"] = (
+                    "Enter a delay of zero seconds or greater")
         try:
             closing = float(valuesDict.get("closingInterval", 0))
             opening = float(valuesDict.get("openingInterval", 0))

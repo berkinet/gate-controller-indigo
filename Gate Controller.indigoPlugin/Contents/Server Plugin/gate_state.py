@@ -56,6 +56,8 @@ class GateStateMachine:
         self.last_motion = "unknown"
         self.idle_deadline = None
         self.paused_until = 0.0
+        self.last_open_active = False
+        self.last_closed_active = False
 
     def synchronize(self, now, lamp_active, open_active, closed_active):
         """Establish startup input levels without inventing a lamp edge."""
@@ -65,6 +67,8 @@ class GateStateMachine:
         self.last_motion = "unknown"
         self.idle_deadline = None
         self.paused_until = 0.0
+        self.last_open_active = bool(open_active)
+        self.last_closed_active = bool(closed_active)
         if open_active and closed_active:
             return self._transition("fault", "both limits active at startup")
         if open_active:
@@ -82,6 +86,31 @@ class GateStateMachine:
         self.state = new_state
         return change
 
+    def defer_endpoint(self, transition):
+        """Restore motion while an external second-leaf delay is pending."""
+        if transition.new == "open":
+            motion = "opening"
+        elif transition.new == "closed":
+            motion = "closing"
+        else:
+            raise ValueError("only endpoint transitions can be deferred")
+        self.state = motion
+        self.last_motion = motion
+        return motion
+
+    def complete_endpoint(self, state):
+        """Complete an endpoint previously deferred by the runtime."""
+        if state not in ("open", "closed"):
+            raise ValueError("invalid endpoint: %s" % state)
+        return self._transition(
+            state, "second-leaf delay elapsed after first-leaf limit")
+
+    def restore_deferred_endpoint(self, state):
+        """Restore an estimated endpoint so its release signals reversal."""
+        if state not in ("open", "closed"):
+            raise ValueError("invalid endpoint: %s" % state)
+        self.state = state
+
     def force(self, state, now, pause_seconds=0.0):
         if state not in self.VALID_STATES:
             raise ValueError("invalid gate state: %s" % state)
@@ -95,6 +124,12 @@ class GateStateMachine:
     def observe(self, now, lamp_active, open_active, closed_active):
         now = float(now)
         lamp_active = bool(lamp_active)
+        open_active = bool(open_active)
+        closed_active = bool(closed_active)
+        open_released = self.last_open_active and not open_active
+        closed_released = self.last_closed_active and not closed_active
+        self.last_open_active = open_active
+        self.last_closed_active = closed_active
         rising_edge = lamp_active and not self.last_lamp_active
         self.last_lamp_active = lamp_active
 
@@ -109,6 +144,12 @@ class GateStateMachine:
             self.last_motion = "unknown"
             self.idle_deadline = None
             return self._transition("closed", "closed limit active")
+        if self.state == "closed" and closed_released:
+            self.last_motion = "opening"
+            return self._transition("opening", "closed limit released")
+        if self.state == "open" and open_released:
+            self.last_motion = "closing"
+            return self._transition("closing", "open limit released")
         if now < self.paused_until:
             return None
         if not rising_edge:
@@ -121,6 +162,9 @@ class GateStateMachine:
         self.last_interval = interval
         self.idle_deadline = now + self.idle_timeout
         if interval is None or interval > self.idle_timeout:
+            if self.state in ("opening", "closing"):
+                self.last_motion = self.state
+                return None
             if self.state == "closed":
                 self.last_motion = "opening"
                 return self._transition(
