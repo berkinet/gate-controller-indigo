@@ -24,6 +24,12 @@
             <Field id="controlPulseSeconds" type="textfield" defaultValue="1"><Label>Control pulse duration (whole seconds):</Label></Field>
             <Field id="controlHelp" type="label" fontSize="small" fontColor="darkgray"><Label>Select the Indigo output physically wired to the GiBiDi pushbutton/command input (currently House - gate control). Open, Close, and Toggle each produce the same momentary pulse.</Label></Field>
 
+            <Field id="indicatorSeparator" type="separator"/>
+            <Field id="indicatorTitle" type="label" alignText="center"><Label>Gate Status Indicator</Label></Field>
+            <Field id="indicatorDeviceId" type="menu" defaultValue="0"><Label>Indicator device:</Label><List class="self" method="getIndicatorDeviceList"/></Field>
+            <Field id="indicatorInverted" type="checkbox" defaultValue="false"><Label>Invert indicator output</Label></Field>
+            <Field id="indicatorHelp" type="label" fontSize="small" fontColor="darkgray"><Label>The optional indicator follows the SPIA/flashing-lamp signal while the gate is operating, remains steadily on while fully or locked open, and turns off when closed.</Label></Field>
+
             <Field id="secondarySeparator" type="separator"/>
             <Field id="secondaryTitle" type="label" alignText="center"><Label>Optional second-leaf limits</Label></Field>
             <Field id="secondaryHelp" type="label" fontSize="small" fontColor="darkgray"><Label>When configured, both first- and second-leaf limits must be active before the whole gate is reported fully open or closed.</Label></Field>

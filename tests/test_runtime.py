@@ -44,6 +44,7 @@ class FakeDevice:
         self.ui_values = {}
         self.display_metadata_refreshes = 0
         self.state_image = None
+        self.supportsOnState = "onOffState" in self.states
 
     def updateStateOnServer(self, key, value=None, **kwargs):
         self.states[key] = value
@@ -113,7 +114,9 @@ fake_indigo.kDeviceAction = types.SimpleNamespace(TurnOn=1, TurnOff=2, Toggle=3)
 fake_indigo.kStateImageSel = types.SimpleNamespace(Locked=1, Unlocked=2)
 fake_indigo.trigger = types.SimpleNamespace(execute=lambda _trigger_id: None)
 fake_indigo.actionGroup = types.SimpleNamespace(execute=lambda _group_id: None)
-fake_indigo.device = types.SimpleNamespace(turnOn=lambda *args, **kwargs: None)
+fake_indigo.device = types.SimpleNamespace(
+    turnOn=lambda *args, **kwargs: None,
+    turnOff=lambda *args, **kwargs: None)
 
 
 class FakeHandler:
@@ -253,6 +256,103 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual("closed", runtime.machine.state)
         self.assertEqual("closed", gate.states["position"])
 
+    def test_status_indicator_flashes_during_motion_and_stays_on_when_open(self):
+        calls = []
+        fake_indigo.device = types.SimpleNamespace(
+            turnOn=lambda device_id, suppressLogging: calls.append(
+                ("on", device_id, suppressLogging)),
+            turnOff=lambda device_id, suppressLogging: calls.append(
+                ("off", device_id, suppressLogging)))
+        fake_indigo.devices[4] = FakeDevice(
+            4, "Kitchen Gate LED", {"onOffState": False})
+        props = base_props()
+        props["indicatorDeviceId"] = "4"
+        runtime = gate_plugin.GateRuntime(
+            RuntimePlugin(), FakeDevice(100, "Main Gate", props=props))
+
+        runtime.start()
+        fake_indigo.devices[3].states["onOffState"] = False
+        runtime.evaluate("closed limit released")
+        fake_indigo.devices[1].states["onOffState"] = True
+        runtime.evaluate("lamp rising")
+        fake_indigo.devices[1].states["onOffState"] = False
+        runtime.evaluate("lamp falling")
+        fake_indigo.devices[2].states["onOffState"] = True
+        runtime.evaluate("open limit reached")
+        fake_indigo.devices[1].states["onOffState"] = True
+        runtime.evaluate("lamp changed while open")
+        fake_indigo.devices[1].states["onOffState"] = False
+        runtime.evaluate("lamp changed again while open")
+        runtime.stop()
+
+        self.assertEqual(
+            [("off", 4, True), ("on", 4, True),
+             ("off", 4, True), ("on", 4, True)], calls)
+
+    def test_status_indicator_stays_on_for_forced_locked_open_state(self):
+        calls = []
+        fake_indigo.device = types.SimpleNamespace(
+            turnOn=lambda device_id, **_kwargs: calls.append(("on", device_id)),
+            turnOff=lambda device_id, **_kwargs: calls.append(("off", device_id)))
+        fake_indigo.devices[2].states["onOffState"] = False
+        fake_indigo.devices[3].states["onOffState"] = False
+        fake_indigo.devices[4] = FakeDevice(
+            4, "Kitchen Gate LED", {"onOffState": False})
+        props = base_props()
+        props["indicatorDeviceId"] = "4"
+        runtime = gate_plugin.GateRuntime(
+            RuntimePlugin(), FakeDevice(100, "Main Gate", props=props))
+
+        runtime.start()
+        runtime.force("open", pause_seconds=3600)
+        fake_indigo.devices[1].states["onOffState"] = True
+        runtime.evaluate("lamp rising while locked open")
+        fake_indigo.devices[1].states["onOffState"] = False
+        runtime.evaluate("lamp falling while locked open")
+        runtime.stop()
+
+        self.assertEqual([("off", 4), ("on", 4)], calls)
+
+    def test_status_indicator_output_can_be_inverted(self):
+        calls = []
+        fake_indigo.device = types.SimpleNamespace(
+            turnOn=lambda device_id, **_kwargs: calls.append(("on", device_id)),
+            turnOff=lambda device_id, **_kwargs: calls.append(("off", device_id)))
+        fake_indigo.devices[4] = FakeDevice(
+            4, "Kitchen Gate LED", {"onOffState": False})
+        props = base_props()
+        props.update({"indicatorDeviceId": "4", "indicatorInverted": "true"})
+        runtime = gate_plugin.GateRuntime(
+            RuntimePlugin(), FakeDevice(100, "Main Gate", props=props))
+        runtime.start()
+        runtime.stop()
+        self.assertEqual([("on", 4)], calls)
+
+    def test_status_indicator_failure_is_deduplicated_and_nonfatal(self):
+        def fail(_device_id, **_kwargs):
+            raise RuntimeError("output detached")
+
+        fake_indigo.device = types.SimpleNamespace(
+            turnOn=fail, turnOff=lambda _device_id, **_kwargs: None)
+        fake_indigo.devices[2].states["onOffState"] = False
+        fake_indigo.devices[3].states["onOffState"] = False
+        fake_indigo.devices[4] = FakeDevice(
+            4, "Kitchen Gate LED", {"onOffState": False})
+        props = base_props()
+        props["indicatorDeviceId"] = "4"
+        owner = RuntimePlugin()
+        gate = FakeDevice(100, "Main Gate", props=props)
+        runtime = gate_plugin.GateRuntime(owner, gate)
+        runtime.start()
+        runtime.force("open")
+        runtime.force("open")
+        runtime.stop()
+
+        self.assertEqual("open", gate.states["position"])
+        warnings = [message for level, message in owner.logger.records
+                    if level == "warning" and "indicator" in message]
+        self.assertEqual(1, len(warnings))
+
     def test_control_uses_indigo_server_managed_duration(self):
         calls = []
         fake_indigo.device = types.SimpleNamespace(
@@ -325,6 +425,15 @@ class RuntimeTests(unittest.TestCase):
             plugin.actionControlDevice(
                 types.SimpleNamespace(deviceAction=device_action), gate)
         self.assertEqual([(2, 100), (1, 100), (3, 100)], calls)
+
+    def test_indicator_cannot_reuse_a_gate_input_or_control_device(self):
+        plugin = gate_plugin.Plugin("id", "name", "version", {})
+        props = base_props()
+        props["indicatorDeviceId"] = props["lampDeviceId"]
+        valid, _values, errors = plugin.validateDeviceConfigUi(
+            props, "gateController", 100)
+        self.assertFalse(valid)
+        self.assertIn("gate input or control", errors["indicatorDeviceId"])
 
 if __name__ == "__main__":
     unittest.main()

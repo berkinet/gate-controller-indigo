@@ -17,7 +17,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(
             "com.berkinet.indigoplugin.gate-controller",
             info["CFBundleIdentifier"])
-        self.assertEqual("0.1.0-alpha.9", info["PluginVersion"])
+        self.assertEqual("0.1.0-beta.1", info["PluginVersion"])
 
     def test_all_xml_files_parse(self):
         for name in ("Devices.xml", "Actions.xml", "Events.xml",
@@ -59,6 +59,16 @@ class ManifestTests(unittest.TestCase):
              ("30", "Warning"), ("40", "Error")],
             [(option.attrib["value"], option.text)
              for option in field.find("List").findall("Option")])
+
+    def test_status_indicator_configuration_is_optional_and_invertible(self):
+        device = ET.parse(SERVER / "Devices.xml").getroot().find("Device")
+        fields = {field.attrib.get("id"): field
+                  for field in device.find("ConfigUI").findall("Field")}
+        self.assertEqual("0", fields["indicatorDeviceId"].attrib["defaultValue"])
+        self.assertEqual(
+            "getIndicatorDeviceList",
+            fields["indicatorDeviceId"].find("List").attrib["method"])
+        self.assertEqual("false", fields["indicatorInverted"].attrib["defaultValue"])
 
 
 if __name__ == "__main__":

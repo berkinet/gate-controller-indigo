@@ -41,6 +41,9 @@ class GateRuntime:
         self._stopped = False
         self._input_error_message = None
         self._input_error_logged_at = 0.0
+        self._indicator_commanded = None
+        self._indicator_error_message = None
+        self._indicator_error_logged_at = 0.0
 
     def source_ids(self):
         result = set()
@@ -274,6 +277,76 @@ class GateRuntime:
             self.device.updateStateOnServer(
                 "status", value="inputs recovered; position retained")
 
+    def _indicator_device_id(self):
+        try:
+            return int(self.device.pluginProps.get(
+                "indicatorDeviceId", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _indicator_desired_state(self, lamp_active):
+        if self.machine.state == "open":
+            desired = True
+        elif self.machine.state == "closed":
+            desired = False
+        else:
+            desired = bool(lamp_active)
+        inverted = input_active(
+            self.device.pluginProps.get("indicatorInverted", False))
+        return not desired if inverted else desired
+
+    def _indicator_error(self, error):
+        message = str(error)
+        now = time.monotonic()
+        try:
+            reminder = float(self.device.pluginProps.get(
+                "inputErrorReminderSeconds", 3600) or 3600)
+        except (TypeError, ValueError):
+            reminder = 3600.0
+        if (message != self._indicator_error_message or
+                now - self._indicator_error_logged_at >= reminder):
+            self.plugin.logger.warning(
+                "Gate status indicator unavailable; gate monitoring "
+                "continues: device='%s': %s", self.device.name, message)
+            self._indicator_error_logged_at = now
+        self._indicator_error_message = message
+
+    def _update_indicator(self, lamp_active):
+        indicator_id = self._indicator_device_id()
+        if not indicator_id:
+            return
+        desired = self._indicator_desired_state(lamp_active)
+        if desired == self._indicator_commanded:
+            return
+        try:
+            try:
+                indicator = indigo.devices[indicator_id]
+            except Exception:
+                raise RuntimeError(
+                    "indicator device id %s is unavailable" % indicator_id)
+            if not getattr(indicator, "enabled", True):
+                raise RuntimeError(
+                    "indicator device '%s' is disabled" % indicator.name)
+            command = (indigo.device.turnOn if desired
+                       else indigo.device.turnOff)
+            command(indicator_id, suppressLogging=True)
+            recovered = self._indicator_error_message is not None
+            self._indicator_commanded = desired
+            self._indicator_error_message = None
+            self._indicator_error_logged_at = 0.0
+            self.plugin.logger.debug(
+                "Gate status indicator set: device='%s' indicator='%s' "
+                "output=%s position=%s lamp=%s",
+                self.device.name, indicator.name,
+                "on" if desired else "off", self.machine.state,
+                str(bool(lamp_active)).lower())
+            if recovered:
+                self.plugin.logger.debug(
+                    "Gate status indicator recovered: device='%s' "
+                    "indicator='%s'", self.device.name, indicator.name)
+        except Exception as error:
+            self._indicator_error(error)
+
     def evaluate(self, reason="input changed"):
         with self._lock:
             if self._stopped:
@@ -351,6 +424,7 @@ class GateRuntime:
 
     def _publish(self, transition, notify=True):
         try:
+            self._update_indicator(self.machine.last_lamp_active)
             if transition is None:
                 if self.machine.last_interval is not None:
                     self.device.updateStateOnServer(
@@ -593,6 +667,16 @@ class Plugin(indigo.PluginBase):
                       if getattr(d, "enabled", True) and d.id != targetId)
         return result
 
+    def getIndicatorDeviceList(self, filter="", valuesDict=None,
+                               typeId="", targetId=0):
+        result = [(0, "— None —")]
+        result.extend(
+            (d.id, d.name) for d in indigo.devices
+            if (getattr(d, "enabled", True) and d.id != targetId and
+                (getattr(d, "supportsOnState", False) or
+                 "onOffState" in getattr(d, "states", {}))))
+        return result
+
     def getActionGroupList(self, filter="", valuesDict=None, typeId="", targetId=0):
         result = [(0, "— None —")]
         result.extend((group.id, group.name) for group in indigo.actionGroups)
@@ -654,6 +738,46 @@ class Plugin(indigo.PluginBase):
                  for p in ("open", "closed")]
         if pairs[0] == pairs[1]:
             errors["closedDeviceId"] = "Open and closed detectors must be different"
+        try:
+            indicator_id = int(valuesDict.get("indicatorDeviceId", 0) or 0)
+        except (TypeError, ValueError):
+            indicator_id = 0
+            errors["indicatorDeviceId"] = "Indicator device is invalid"
+        if indicator_id:
+            configured_ids = set()
+            for prefix in GateRuntime.INPUTS:
+                try:
+                    configured_ids.add(int(valuesDict.get(
+                        prefix + "DeviceId", 0) or 0))
+                except (TypeError, ValueError):
+                    pass
+            try:
+                configured_ids.add(int(valuesDict.get(
+                    "controlDeviceId", 0) or 0))
+            except (TypeError, ValueError):
+                pass
+            try:
+                target_id = int(deviceId)
+            except (TypeError, ValueError):
+                target_id = 0
+            if indicator_id == target_id:
+                errors["indicatorDeviceId"] = (
+                    "The Gate Controller cannot be its own indicator")
+            elif indicator_id in configured_ids:
+                errors["indicatorDeviceId"] = (
+                    "Select an output not used by a gate input or control")
+            else:
+                try:
+                    indicator = indigo.devices[indicator_id]
+                    if not getattr(indicator, "enabled", True):
+                        raise RuntimeError("disabled")
+                    if not (getattr(indicator, "supportsOnState", False) or
+                            "onOffState" in getattr(indicator, "states", {})):
+                        errors["indicatorDeviceId"] = (
+                            "Select a device that supports On and Off")
+                except Exception:
+                    errors["indicatorDeviceId"] = (
+                        "Indicator device is unavailable or disabled")
         for key, minimum in (("debounceSeconds", 0.01),
                              ("idleTimeoutSeconds", 0.2),
                              ("controlPulseSeconds", 1.0),

@@ -1,6 +1,6 @@
 # Migration plan from the current gate automation
 
-This plan is intentionally reversible. The alpha plugin is first installed as
+This plan is intentionally reversible. The beta plugin is first installed as
 an observer, then downstream automations are moved one at a time. Nothing in
 this repository edits the live Indigo database.
 
@@ -33,15 +33,18 @@ source is selected in the Gate Controller device configuration.
    Action Group hook. Verify that closing cancels the condition before removing
    the legacy timer logic.
 4. **Control phase:** Configure `House - gate control`, test one supervised
-   pulse, then move gate-control callers to the plugin device/action.
+   pulse, then move gate-control callers to the plugin device/action. Configure
+   the kitchen gate LED as the Gate Status Indicator and verify that it flashes
+   during movement, remains steadily on while open, and turns off when closed.
 5. **HomeKit phase:** Remove the old `Virtual Front Gate` publication and
    publish the new Gate Controller device directly as **Front Gate**, subtype
    `GarageDoor`, using `doorState`, with motion enabled. Reassign the replacement
    accessory to its Home room, favorites, notifications, scenes, and
    automations. Verify all states and Siri control. See `HOMEKIT.md`.
 6. **Cleanup phase:** Disable the `GiBiDi SPIA` Python trigger and the old debug
-   triggers. Leave them disabled through a proving period before deleting the
-   script and the `GateMotion`, `GateLampDt`, or `GateLampDebug` variables.
+   and kitchen-lamp triggers. Leave them disabled through a proving period
+   before deleting the script and the `GateMotion`, `GateLampDt`, or
+   `GateLampDebug` variables.
 
 ## Suggested plugin-device functions versus Indigo actions
 
@@ -53,6 +56,7 @@ Keep these in the plugin:
 - Open-too-long timing, state, and transition event.
 - Fault detection and source-input health.
 - A server-managed momentary pulse to the configured control device.
+- The reusable Gate Status Indicator policy and output synchronization.
 
 Keep these as Indigo trigger actions:
 

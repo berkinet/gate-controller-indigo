@@ -5,11 +5,11 @@ and timers with one configurable virtual gate device. It observes the gate
 controller's flashing-lamp signal, combines that with physical open and closed
 limits, and publishes a single authoritative gate state.
 
-This is an alpha release. Install and exercise it alongside the existing gate
+This is a beta release. Install and exercise it alongside the existing gate
 automation before disabling anything that currently controls or monitors the
 gate.
 
-## What the alpha provides
+## What the beta provides
 
 - Configurable Indigo device/state/polarity mappings for the flashing lamp,
   fully-open detector, and fully-closed detector.
@@ -32,6 +32,9 @@ gate.
   paused, fault, and open-too-long.
 - Optional Action Group hooks for straightforward migration.
 - A safe momentary control action using Indigo's server-managed pulse duration.
+- An optional Gate Status Indicator output that flashes with the SPIA lamp
+  signal during operation, remains steadily on while fully or locked open, and
+  turns off when closed. Output polarity can be inverted.
 - Deduplicated source-input errors with explicit recovery reporting.
 - Four selectable logging levels. At the default Informational level, normal
   operation logs only `Gate opening` and `Gate closed.`; Debugging adds detailed
@@ -41,7 +44,7 @@ Plugin startup synchronizes current input levels without counting an already-on
 lamp as a pulse and without emitting transition triggers or Action Groups. This
 prevents restarts from replaying announcements and lighting actions.
 
-## Install for alpha testing
+## Install for beta testing
 
 1. Download or clone the repository on the Indigo server Mac.
 2. Double-click `Gate Controller.indigoPlugin` and let Indigo install it.
@@ -52,9 +55,11 @@ prevents restarts from replaying announcements and lighting actions.
    pushbutton/command input (`House - gate control` in the current system).
    Pulse duration must be a whole number of seconds because Indigo's
    server-managed duration API does not accept fractional values.
-6. Observe a complete open and close cycle and verify `position`, `doorState`,
+6. Optionally select the Indigo on/off device used as the Gate Status Indicator
+   and invert its output if required.
+7. Observe a complete open and close cycle and verify `position`, `doorState`,
    input states, and `lampInterval`.
-7. Add transition triggers for announcements and lighting only after state
+8. Add transition triggers for announcements and lighting only after state
    detection has been verified.
 
 Do not disable the existing safety or gate-control automation during initial

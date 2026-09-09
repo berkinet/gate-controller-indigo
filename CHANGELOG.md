@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.0-beta.1 — 2026-09-09
+
+- Add an optional Gate Status Indicator output that follows the live
+  SPIA/flashing-lamp signal while the gate operates, remains steadily on while
+  the authoritative gate state is Open (including forced/locked open), and
+  turns off while Closed.
+- Add configurable indicator-output inversion and prevent the indicator from
+  reusing a gate input, the command output, or the Gate Controller itself.
+- Synchronize the indicator at startup, suppress redundant output commands,
+  and isolate repeated indicator failures from gate sensing with deduplicated
+  warnings and automatic retry.
+- Promote the plugin from alpha to beta after completing the legacy gate-script
+  replacement surface.
+
 ## 0.1.0-alpha.9 — 2026-09-09
 
 - Add a four-level plugin logging preference: Debugging, Informational,
