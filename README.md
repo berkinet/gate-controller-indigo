@@ -81,6 +81,8 @@ inside Python.
 
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the staged cutover and
 [docs/HOMEKIT.md](docs/HOMEKIT.md) for direct HomeKitLink Siri publication. See
+[docs/BA230_LOCK_TRACE.md](docs/BA230_LOCK_TRACE.md) for measured Lock1/Lock2,
+SPIA, and position-limit timing and the resulting diagnostic interpretation. See
 [SECURITY.md](SECURITY.md) for the credential cleanup identified during the
 existing-automation review.
 

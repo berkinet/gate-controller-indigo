@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.0-beta.5 — 2026-09-10
+
+- Document measured BA230 Lock1/Lock2 activation envelopes, their ordering and
+  timing relative to SPIA and the first-leaf position limits, supported
+  diagnostic inferences, electrical-measurement uncertainty, and the decision
+  not to make the lock signals operational state inputs based on one session.
+
 ## 0.1.0-beta.4 — 2026-09-09
 
 - Split estimated second-leaf completion into independent opening and closing
