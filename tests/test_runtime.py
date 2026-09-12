@@ -299,8 +299,14 @@ class RuntimeTests(unittest.TestCase):
         runtime = gate_plugin.GateRuntime(owner, gate)
         runtime.start()
         fake_indigo.devices[1].enabled = False
-        runtime.evaluate()
-        runtime.evaluate()
+        timer = mock.Mock()
+        with mock.patch.object(
+                gate_plugin.threading, "Timer", return_value=timer) as factory:
+            runtime.evaluate()
+            runtime.evaluate()
+            self.assertEqual(1, factory.call_count)
+            callback = factory.call_args.args[1]
+            callback(*factory.call_args.args[2])
         warnings = [record for record in owner.logger.records
                     if record[0] == "warning"]
         self.assertEqual(1, len(warnings))
@@ -311,6 +317,22 @@ class RuntimeTests(unittest.TestCase):
         self.assertIsNone(gate.error)
         self.assertTrue(any("recovered" in message for level, message
                             in owner.logger.records if level == "detailed"))
+
+    def test_transient_input_failure_recovers_without_warning(self):
+        owner = RuntimePlugin()
+        gate = FakeDevice(100, "Main Gate", props=base_props())
+        runtime = gate_plugin.GateRuntime(owner, gate)
+        runtime.start()
+        fake_indigo.devices[1].enabled = False
+        timer = mock.Mock()
+        with mock.patch.object(
+                gate_plugin.threading, "Timer", return_value=timer):
+            runtime.evaluate()
+            fake_indigo.devices[1].enabled = True
+            runtime.evaluate()
+        timer.cancel.assert_called_once_with()
+        self.assertEqual([], [record for record in owner.logger.records
+                              if record[0] == "warning"])
 
     def test_plugin_coalesces_input_recovery_and_synchronizes_silently(self):
         plugin = gate_plugin.Plugin("id", "name", "version", {})

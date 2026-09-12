@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.0-beta.7 — 2026-09-12
+
+- Give unavailable gate inputs a short warning grace period so ordinary
+  Phidgets plugin restarts do not produce alarming transient warnings.
+- Continue to mark inputs unavailable immediately, and retain warnings when
+  the input failure persists beyond the grace period.
+
 ## 0.1.0-beta.6 — 2026-09-12
 
 - Coalesce input updates while required gate inputs recover, then establish one

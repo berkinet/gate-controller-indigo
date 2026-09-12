@@ -26,6 +26,7 @@ class GateRuntime:
     """Coordinate one Indigo gate device with its motion state machine."""
 
     INPUT_RECOVERY_SETTLE_SECONDS = 0.5
+    INPUT_WARNING_GRACE_SECONDS = 2.0
     REQUIRED_INPUTS = ("lamp", "open", "closed")
     OPTIONAL_INPUTS = ("open2", "closed2", "safety1", "safety2",
                        "cycle", "lock1", "lock2")
@@ -48,6 +49,7 @@ class GateRuntime:
         self._endpoint_timer = None
         self._pending_endpoint = None
         self._input_recovery_timer = None
+        self._input_warning_timer = None
         self._stopped = False
         self._input_error_message = None
         self._input_error_logged_at = 0.0
@@ -201,9 +203,11 @@ class GateRuntime:
             self._stopped = True
             self._generation += 1
             timers = (self._idle_timer, self._open_timer,
-                      self._endpoint_timer, self._input_recovery_timer)
+                      self._endpoint_timer, self._input_recovery_timer,
+                      self._input_warning_timer)
             self._idle_timer = self._open_timer = None
             self._endpoint_timer = self._input_recovery_timer = None
+            self._input_warning_timer = None
             self._pending_endpoint = None
         for timer in timers:
             if timer is not None:
@@ -375,16 +379,31 @@ class GateRuntime:
                 "inputErrorReminderSeconds", 3600) or 3600)
         except (TypeError, ValueError):
             reminder = 3600.0
-        if (message != self._input_error_message or
-                now - self._input_error_logged_at >= reminder):
-            self.plugin.logger.warning(
-                "Gate inputs unavailable; retaining last known position: "
-                "device='%s': %s", self.device.name, message)
-            self._input_error_logged_at = now
+        warning_due = (message != self._input_error_message or
+                       now - self._input_error_logged_at >= reminder)
         self._input_error_message = message
+        if warning_due and self._input_warning_timer is None:
+            self._replace_timer(
+                "_input_warning_timer", self.INPUT_WARNING_GRACE_SECONDS,
+                self._input_warning_fired)
+
+    def _input_warning_fired(self, generation):
+        with self._lock:
+            if (self._stopped or generation != self._generation or
+                    self._input_error_message is None):
+                return
+            self._input_warning_timer = None
+            message = self._input_error_message
+            self._input_error_logged_at = time.monotonic()
+        self.plugin.logger.warning(
+            "Gate inputs unavailable; retaining last known position: "
+            "device='%s': %s", self.device.name, message)
 
     def _inputs_recovered(self):
         recovered = self._input_error_message is not None
+        if self._input_warning_timer is not None:
+            self._input_warning_timer.cancel()
+            self._input_warning_timer = None
         if recovered:
             self.plugin.logger.log(DETAILED,
                 "Gate inputs recovered: device='%s'", self.device.name)
