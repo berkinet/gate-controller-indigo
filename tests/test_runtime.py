@@ -3,6 +3,7 @@ import pathlib
 import sys
 import types
 import unittest
+from unittest import mock
 
 
 ROOT = pathlib.Path(__file__).parents[1]
@@ -310,6 +311,50 @@ class RuntimeTests(unittest.TestCase):
         self.assertIsNone(gate.error)
         self.assertTrue(any("recovered" in message for level, message
                             in owner.logger.records if level == "detailed"))
+
+    def test_plugin_coalesces_input_recovery_and_synchronizes_silently(self):
+        plugin = gate_plugin.Plugin("id", "name", "version", {})
+        plugin.emit = mock.Mock()
+        plugin.run_action_group = mock.Mock()
+        gate = FakeDevice(100, "Main Gate", props=base_props())
+        fake_indigo.devices[1].states.clear()
+        plugin.deviceStartComm(gate)
+        runtime = plugin.runtimes[gate.id]
+        self.assertTrue(runtime.recovering_inputs())
+
+        timers = []
+
+        class FakeTimer:
+            def __init__(self, delay, callback, args):
+                self.delay = delay
+                self.callback = callback
+                self.args = args
+                self.cancelled = False
+                timers.append(self)
+
+            def start(self):
+                pass
+
+            def cancel(self):
+                self.cancelled = True
+
+        original = FakeDevice(1, "Lamp", {})
+        fake_indigo.devices[1].states["onOffState"] = False
+        updated = fake_indigo.devices[1]
+        with mock.patch.object(gate_plugin.threading, "Timer", FakeTimer):
+            plugin.deviceUpdated(original, updated)
+            plugin.deviceUpdated(original, updated)
+            self.assertEqual(2, len(timers))
+            self.assertTrue(timers[0].cancelled)
+            timers[-1].callback(*timers[-1].args)
+
+        self.assertFalse(runtime.recovering_inputs())
+        self.assertEqual("closed", runtime.machine.state)
+        plugin.emit.assert_not_called()
+        plugin.run_action_group.assert_not_called()
+        info = [message for level, message in plugin.logger.records
+                if level == "info"]
+        self.assertEqual([], info)
 
     def test_only_opening_and_closed_are_routine_information(self):
         owner = RuntimePlugin()

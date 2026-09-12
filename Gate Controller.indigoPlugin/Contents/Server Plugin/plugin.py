@@ -25,6 +25,7 @@ DOOR_STATE = {
 class GateRuntime:
     """Coordinate one Indigo gate device with its motion state machine."""
 
+    INPUT_RECOVERY_SETTLE_SECONDS = 0.5
     REQUIRED_INPUTS = ("lamp", "open", "closed")
     OPTIONAL_INPUTS = ("open2", "closed2", "safety1", "safety2",
                        "cycle", "lock1", "lock2")
@@ -46,6 +47,7 @@ class GateRuntime:
         self._open_timer = None
         self._endpoint_timer = None
         self._pending_endpoint = None
+        self._input_recovery_timer = None
         self._stopped = False
         self._input_error_message = None
         self._input_error_logged_at = 0.0
@@ -199,8 +201,9 @@ class GateRuntime:
             self._stopped = True
             self._generation += 1
             timers = (self._idle_timer, self._open_timer,
-                      self._endpoint_timer)
-            self._idle_timer = self._open_timer = self._endpoint_timer = None
+                      self._endpoint_timer, self._input_recovery_timer)
+            self._idle_timer = self._open_timer = None
+            self._endpoint_timer = self._input_recovery_timer = None
             self._pending_endpoint = None
         for timer in timers:
             if timer is not None:
@@ -502,6 +505,37 @@ class GateRuntime:
                 return
         self._publish(transition)
 
+    def recovering_inputs(self):
+        with self._lock:
+            return self._input_error_message is not None
+
+    def schedule_input_recovery(self):
+        """Coalesce a returning input set before establishing its baseline."""
+        with self._lock:
+            if self._stopped:
+                return
+            self._replace_timer(
+                "_input_recovery_timer", self.INPUT_RECOVERY_SETTLE_SECONDS,
+                self._input_recovery_fired)
+
+    def _input_recovery_fired(self, generation):
+        with self._lock:
+            if self._stopped or generation != self._generation:
+                return
+            self._input_recovery_timer = None
+            try:
+                values, open_active, closed_active = self._read_inputs()
+                now = time.monotonic()
+                transition = self.machine.synchronize(
+                    now, values["lamp"], open_active, closed_active)
+                self._publish_inputs(values)
+                self._inputs_recovered()
+                self._schedule_idle(now)
+            except Exception as error:
+                self._input_error(error)
+                return
+        self._publish(transition, notify=False)
+
     def _debug_observation(self, reason, now, values, open_active,
                            closed_active, previous_lamp, previous_edge,
                            transition):
@@ -724,7 +758,10 @@ class Plugin(indigo.PluginBase):
         for gate_id in list(self.source_index.get(updated.id, ())):
             runtime = self.runtimes.get(gate_id)
             if runtime is not None:
-                runtime.evaluate("input changed")
+                if runtime.recovering_inputs():
+                    runtime.schedule_input_recovery()
+                else:
+                    runtime.evaluate("input changed")
 
     def triggerStartProcessing(self, trigger):
         self.triggers[trigger.id] = trigger

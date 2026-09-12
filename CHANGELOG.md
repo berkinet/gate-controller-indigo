@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.0-beta.6 — 2026-09-12
+
+- Coalesce input updates while required gate inputs recover, then establish one
+  silent state-machine baseline after the input set has settled.
+- Prevent staggered Phidget state restoration during a plugin restart from
+  producing false Opening/Closed transitions, Gate Controller events, or gate
+  action-group execution.
+- Preserve immediate evaluation and notification for normal input changes once
+  all required inputs are available.
+
 ## 0.1.0-beta.5 — 2026-09-10
 
 - Document measured BA230 Lock1/Lock2 activation envelopes, their ordering and
